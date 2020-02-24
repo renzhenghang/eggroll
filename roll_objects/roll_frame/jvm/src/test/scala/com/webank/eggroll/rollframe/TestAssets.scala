@@ -21,22 +21,9 @@ import com.webank.eggroll.core.meta.ErStore
 import com.webank.eggroll.format.FrameDB
 
 object TestAssets {
+  val DELTA = 0.0000001
   val clusterManager = new ClusterManager
 
-  def getDoubleSchema(fieldCount: Int): String = {
-    val sb = new StringBuilder
-    sb.append(
-      """{
-                 "fields": [""")
-    (0 until fieldCount).foreach { i =>
-      if (i > 0) {
-        sb.append(",")
-      }
-      sb.append(s"""{"name":"double$i", "type": {"name" : "floatingpoint","precision" : "DOUBLE"}}""")
-    }
-    sb.append("]}")
-    sb.toString()
-  }
 
   /**
     * mock -- use to load Cache on local mode

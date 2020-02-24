@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- *
  */
 
 package com.webank.eggroll.rollframe
@@ -25,6 +24,7 @@ import com.webank.eggroll.core.meta.{ErProcessor, ErTask}
 import com.webank.eggroll.core.serdes.DefaultScalaSerdes
 import com.webank.eggroll.core.util.ThreadPoolUtils
 import com.webank.eggroll.format.{FrameBatch, FrameDB, _}
+import com.webank.eggroll.rollframe.pytorch.linalg.Matrices
 
 import scala.collection.immutable.Range.Inclusive
 
@@ -54,6 +54,7 @@ class EggFrame {
     }.toList
   }
 
+  // TODO: remove roll site
   def runBroadcast(path: String): Unit = {
     val list = FrameDB.cache(path).readAll()
     serverNodes.foreach { server =>
@@ -71,10 +72,63 @@ class EggFrame {
     val queuePath = task.id + "-doing"
     // total mean batch size, if given more than one, it just get one.
     val queue = FrameDB.queue(queuePath, 1)
-    input.foreach { store =>
+    input.foreach { fb =>
       ThreadPoolUtils.defaultThreadPool.submit(new Runnable {
         override def run(): Unit = {
-          queue.append(mapper(store))
+          queue.append(mapper(fb))
+        }
+      })
+    }
+    output.writeAll(queue.readAll())
+  }
+
+  def runMatMulV1(task: ErTask,
+                input: Iterator[FrameBatch],
+                output: FrameDB,
+                matrix: Array[Double],
+                rows: Int,
+                cols: Int
+               ): Unit = {
+    val queuePath = task.id + "-doing"
+    // total mean batch size, if given more than one, it just get one.
+    val queue = FrameDB.queue(queuePath, 1)
+    input.foreach { fb =>
+      ThreadPoolUtils.defaultThreadPool.submit(new Runnable {
+        override def run(): Unit = {
+          println(fb.rowCount,fb.fieldCount)
+          var start = System.currentTimeMillis()
+          val cb = fb.toColumnVectors
+          println(s"FrameBatch to ColumnVectors time = ${System.currentTimeMillis() - start}")
+          start = System.currentTimeMillis()
+          val resFb = Matrices.matMulToFbV1(cb, matrix, rows, cols)
+          println(s"matMul and store as Fb time = ${System.currentTimeMillis() - start}")
+          queue.append(resFb)
+        }
+      })
+    }
+    output.writeAll(queue.readAll())
+  }
+
+  def runMatMul(task: ErTask,
+                input: Iterator[FrameBatch],
+                output: FrameDB,
+                matrix: Array[Double],
+                rows: Int,
+                cols: Int
+               ): Unit = {
+    val queuePath = task.id + "-doing"
+    // total mean batch size, if given more than one, it just get one.
+    val queue = FrameDB.queue(queuePath, 1)
+    input.foreach { fb =>
+      ThreadPoolUtils.defaultThreadPool.submit(new Runnable {
+        override def run(): Unit = {
+          var start = System.currentTimeMillis()
+          val cf = new ColumnFrame(fb,rows)
+          println(s"get CF time = ${System.currentTimeMillis() - start}")
+          start = System.currentTimeMillis()
+          val resFb = Matrices.matMulToFb(cf, matrix, rows, cols)
+          println(s"matMul and store as Fb time = ${System.currentTimeMillis() - start}")
+          queue.append(resFb)
         }
       })
     }
@@ -88,7 +142,7 @@ class EggFrame {
                      byColumn: Boolean): Unit = {
     if (!input.hasNext) return
     val zero = input.next()
-    runAggregateBatch(task, input, output, zero, reducer, (a, _) => a, byColumn)
+    runAggregateBatch(task, input, output, zero, (a, _) => a, reducer, byColumn, -1)
   }
 
   //TODO: allgather = List[(FB)=>FB]
@@ -98,17 +152,18 @@ class EggFrame {
                         zeroValue: FrameBatch,
                         seqOp: (FrameBatch, FrameBatch) => FrameBatch,
                         combOp: (FrameBatch, FrameBatch) => FrameBatch,
-                        byColumn: Boolean): Unit = {
+                        byColumn: Boolean,
+                        threadsNum: Int): Unit = {
     val partition = task.inputs.head
     val batchSize = 1
     // TODO: more generally, like repartition?
-
     // TODO: route
-    val localServer = clusterManager.getPreferredServer(store = task.job.inputs.head)(partition.id)
+    //    val localServer = clusterManager.getPreferredServer(store = task.job.inputs.head)(partition.id)
+    val localServer = partition.processor
     println(s"runAggregateBatch: partion.id = ${partition.id}")
     var localQueue: FrameDB = null
 
-    // TODO: didn't finish broadcast
+    // TODO: don't finish broadcast
     val zeroPath = "broadcast:" + task.job.id
     val zero: FrameBatch =
       if (zeroValue == null) {
@@ -123,19 +178,41 @@ class EggFrame {
     if (batchSize == 1) {
       if (input.hasNext) {
         val fb = input.next()
-          // use muti-thread by rows ,for example,parallel = 2, 100 rows can split to [0,50] and [50,100]
-          val parallel = Math.min(if (executorPool.getCorePoolSize > 0) executorPool.getCorePoolSize else 1, fb.rowCount) // split by row to grow parallel
-          // for concurrent writing
-          localQueue = FrameDB.queue(task.id + "-doing", parallel)
-          sliceByRow(parallel, fb).foreach { case inclusive: Inclusive =>
-            executorPool.submit(new Callable[Unit] {
-              override def call(): Unit = {
-                localQueue.append(seqOp(FrameUtils.copy(zero), fb.sliceByRow(inclusive.start, inclusive.end)))
-              }
-            })
-          }
+        // use muti-thread by rows ,for example,parallel = 2, 100 rows can split to [0,50] and [50,100]
+        // for concurrent writing
+        // TODO: specify thread num, if zero value is to large , copy too many zero value will cause OOM
+        // TODO: whether care about memory state and then decide thread num.
+        val parallel: Int = if (threadsNum < 0) {
+          val availableProcessors = Runtime.getRuntime.availableProcessors() / 2 // testing suggestion
+          val eachThreadCount = 1000
+          val tmpParallel = fb.rowCount / eachThreadCount + 1
+          if (tmpParallel < availableProcessors) tmpParallel else availableProcessors
+          //          2 * availableProcessors
+        } else {
+          threadsNum
+        }
+        localQueue = FrameDB.queue(task.id + "-doing", parallel)
+
+        println(s"egg parallel = $parallel")
+        sliceByRow(parallel, fb).foreach { case inclusive: Inclusive =>
+          executorPool.submit(new Callable[Unit] {
+            override def call(): Unit = {
+              var start = System.currentTimeMillis()
+              val tmpZeroValue = FrameUtils.fork(zero)
+              println(s"fork time: ${System.currentTimeMillis() - start} ms")
+              start = System.currentTimeMillis()
+              localQueue.append(seqOp(tmpZeroValue, fb.sliceByRow(inclusive.start, inclusive.end)))
+              println(s"seqOp time: ${System.currentTimeMillis() - start}")
+            }
+          })
+        }
+      } else {
+        // for reduce op
+        localQueue = FrameDB.queue(task.id + "-doing", 1)
+        localQueue.append(zero)
       }
     } else {
+      // TODO: unfinished
       val parallel = Math.min(executorPool.getCorePoolSize, batchSize) // reduce zero value copy
       // for concurrent writing
       localQueue = FrameDB.queue(task.id + "-doing", parallel)
@@ -165,7 +242,7 @@ class EggFrame {
     // todo: local queue and result synchronization, maybe a countdown latch
     val resultIterator = localQueue.readAll()
     if (!resultIterator.hasNext) throw new IllegalStateException("empty result")
-    var localBatch: FrameBatch = resultIterator.next()    // localBatch is zero values which contains all fields
+    var localBatch: FrameBatch = resultIterator.next()
     while (resultIterator.hasNext) {
       localBatch = combOp(localBatch, resultIterator.next())
     }
@@ -191,15 +268,21 @@ class EggFrame {
       }
     } else {
       val queuePath = "gather:" + task.job.id
-      if (localServer.equals(rootServer)) {
-        for (tmp <- FrameDB.queue(queuePath, transferQueueSize).readAll()) {
-          localBatch = combOp(localBatch, tmp)
+      if (localServer.commandEndpoint.host.equals(rootServer.commandEndpoint.host)) {
+        // the same root server
+        if (partition.id == 0) {
+          for (tmp <- FrameDB.queue(queuePath, transferQueueSize).readAll()) {
+            localBatch = combOp(localBatch, tmp)
+          }
+          output.append(localBatch)
+        } else {
+          // the same root server but different partition
+          FrameDB.queue(queuePath, -1).writeAll(Iterator(localBatch))
         }
       } else {
         transferService.send(rootServer.id, queuePath, localBatch)
       }
     }
-    output.append(localBatch)
   }
 
   def runTask(task: ErTask): ErTask = {
@@ -229,7 +312,18 @@ class EggFrame {
         val seqOp: (FrameBatch, FrameBatch) => FrameBatch = serdes.deserialize(functors(1).body)
         val combOp: (FrameBatch, FrameBatch) => FrameBatch = serdes.deserialize(functors(2).body)
         val byColumn: Boolean = serdes.deserialize(functors(3).body)
-        runAggregateBatch(task, inputDB.readAll(), outputDB, zeroValue, seqOp, combOp, byColumn)
+        val threadsNum: Int = serdes.deserialize(functors(5).body)
+        runAggregateBatch(task, inputDB.readAll(), outputDB, zeroValue, seqOp, combOp, byColumn, threadsNum)
+      case EggFrame.mulMulTask =>
+        val matrix:Array[Double] = serdes.deserialize(functors.head.body)
+        val rows: Int = serdes.deserialize(functors(1).body)
+        val cols: Int = serdes.deserialize(functors(2).body)
+        runMatMul(task, inputDB.readAll(), outputDB, matrix, rows, cols)
+      case EggFrame.mulMulTaskV1 =>
+        val matrix:Array[Double] = serdes.deserialize(functors.head.body)
+        val rows: Int = serdes.deserialize(functors(1).body)
+        val cols: Int = serdes.deserialize(functors(2).body)
+        runMatMulV1(task, inputDB.readAll(), outputDB, matrix, rows, cols)
       case t => throw new UnsupportedOperationException(t)
     }
     outputDB.close()
@@ -244,4 +338,21 @@ object EggFrame {
   val reduceTask = s"${EggFrame}.reduceTask"
   val aggregateBatchTask = s"${EggFrame}.aggregateBatchTask"
   val broadcastTask = s"${EggFrame}.broadcastTask"
+  val mulMulTask = "mulMulTask"
+  val mulMulTaskV1 = "mulMulTaskV1"
+
+  def getDoubleSchema(fieldCount: Int): String = {
+    val sb = new StringBuilder
+    sb.append(
+      """{
+                 "fields": [""")
+    (0 until fieldCount).foreach { i =>
+      if (i > 0) {
+        sb.append(",")
+      }
+      sb.append(s"""{"name":"double$i", "type": {"name" : "floatingpoint","precision" : "DOUBLE"}}""")
+    }
+    sb.append("]}")
+    sb.toString()
+  }
 }

@@ -26,7 +26,7 @@ import com.webank.eggroll.core.serdes.DefaultScalaSerdes
 import com.webank.eggroll.format.{FrameBatch, _}
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
 
-
+// TODO: care about client task grpc whether closed and thread pool whether closed
 // TODO: always close in finally
 // TODO: Use a dag to express program with base plan like reading/writing/scatter/broadcast etc.
 
@@ -38,6 +38,8 @@ class ReduceBatchTask(uri: CommandURI, job: ErJob) extends BaseTaskPlan(uri, job
 
 class MapPartitionTask(uri: CommandURI, job: ErJob) extends BaseTaskPlan(uri, job)
 
+class TorchTask(uri: CommandURI, job: ErJob) extends BaseTaskPlan(uri, job)
+
 
 trait RollFrame
 
@@ -46,8 +48,34 @@ trait RollFrame
 class RollFrameClientMode(val store: ErStore) extends RollFrame {
 
   val serdes = new DefaultScalaSerdes
-
   val rollFrameService = new RollFrameService
+
+
+  def matMulV1(m: Array[Double], rows: Int, cols: Int, output: ErStore = null): RollFrameClientMode = {
+    val jobType = RollFrame.mulMul
+    val job = ErJob(id = jobType,
+      name = EggFrame.mulMulTaskV1,
+      inputs = Array(store),
+      outputs = Array(if (output == null) store.fork(postfix = jobType) else output),
+      functors = Array(ErFunctor(name = RollFrame.mulMul, body = serdes.serialize(m)),
+        ErFunctor(name = "rows", body = serdes.serialize(rows)),
+        ErFunctor(name = "cols", body = serdes.serialize(cols)))
+    )
+    processJobResult(rollFrameService.mulMul(job))
+  }
+
+  def matMul(m: Array[Double], rows: Int, cols: Int, output: ErStore = null): RollFrameClientMode = {
+    val jobType = RollFrame.mulMul
+    val job = ErJob(id = jobType,
+      name = EggFrame.mulMulTask,
+      inputs = Array(store),
+      outputs = Array(if (output == null) store.fork(postfix = jobType) else output),
+      functors = Array(ErFunctor(name = RollFrame.mulMul, body = serdes.serialize(m)),
+        ErFunctor(name = "rows", body = serdes.serialize(rows)),
+        ErFunctor(name = "cols", body = serdes.serialize(cols)))
+    )
+    processJobResult(rollFrameService.mulMul(job))
+  }
 
   def mapBatch(f: FrameBatch => FrameBatch, output: ErStore = null): RollFrameClientMode = {
     val jobType = RollFrame.mapBatch
@@ -61,6 +89,18 @@ class RollFrameClientMode(val store: ErStore) extends RollFrame {
     processJobResult(rollFrameService.mapBatches(job))
   }
 
+  // TODO: add reduce by rows operation
+  /**
+   * reduce frameBatchs between different partitions
+   * eg:
+   * 1 1 1   2 2 2   3 3 3
+   * 1 1 1 + 2 2 2 = 3 3 3
+   * 1 1 1   2 2 2   3 3 3
+   *
+   * @param f      reducer
+   * @param output ErStore
+   * @return
+   */
   def reduce(f: (FrameBatch, FrameBatch) => FrameBatch, output: ErStore = null): RollFrameClientMode = {
     val jobType = RollFrame.reduce
     val job = ErJob(id = RollFrame.reduce,
@@ -77,6 +117,7 @@ class RollFrameClientMode(val store: ErStore) extends RollFrame {
                 combOp: (FrameBatch, FrameBatch) => FrameBatch,
                 byColumn: Boolean = false,
                 broadcastZeroValue: Boolean = false,
+                threadsNum: Int = -1,
                 output: ErStore = null): RollFrameClientMode = {
     val jobType = RollFrame.aggregate
     val job = ErJob(id = RollFrame.aggregate,
@@ -88,8 +129,8 @@ class RollFrameClientMode(val store: ErStore) extends RollFrame {
         ErFunctor(name = "seqOp", body = serdes.serialize(seqOp)),
         ErFunctor(name = "combOp", body = serdes.serialize(combOp)),
         ErFunctor(name = "byColumn", body = serdes.serialize(byColumn)),
-        ErFunctor(name = "broadcastZeroValue", body = serdes.serialize(broadcastZeroValue))))
-
+        ErFunctor(name = "broadcastZeroValue", body = serdes.serialize(broadcastZeroValue)),
+        ErFunctor(name = "parallel", body = serdes.serialize(threadsNum))))
     processJobResult(rollFrameService.aggregate(job))
   }
 
@@ -106,14 +147,17 @@ object RollFrame {
   val mapBatch = "mapBatch"
   val reduce = "reduce"
   val aggregate = "aggregate"
+  val broadcast = "broadcast"
+  val mulMul = "mulMulTask"
 
   object Util {
     /**
-      * load cache on cluster/local mode
-      *
-      * @param inStore :ErStore
-      * @return
-      */
+     * load cache on cluster/local mode
+     * TODO: block and await
+     *
+     * @param inStore :ErStore
+     * @return
+     */
     def loadCache(inStore: ErStore): ErStore = {
       val cacheStoreLocator = inStore.storeLocator.copy(storeType = StringConstants.CACHE)
       val cacheStore = inStore.copy(storeLocator = cacheStoreLocator, partitions = inStore.partitions.map(p =>
@@ -129,12 +173,12 @@ object RollFrame {
 
 // TODO: MOCK
 class ClusterManager extends Serializable {
-  val clusterNode0 = ErProcessor(id = 0, commandEndpoint = ErEndpoint("node1", 20100), dataEndpoint = ErEndpoint("node1", 20200), tag = "boss")
-  val clusterNode1 = ErProcessor(id = 1, commandEndpoint = ErEndpoint("node2", 20101), dataEndpoint = ErEndpoint("node2", 20201), tag = "worker")
-  val clusterNode2 = ErProcessor(id = 2, commandEndpoint = ErEndpoint("node3", 20102), dataEndpoint = ErEndpoint("node3", 20202), tag = "worker")
+  val clusterNode0: ErProcessor = ErProcessor(id = 0, commandEndpoint = ErEndpoint("node1", 20100), dataEndpoint = ErEndpoint("node1", 20200), tag = "boss")
+  val clusterNode1: ErProcessor = ErProcessor(id = 1, commandEndpoint = ErEndpoint("node2", 20101), dataEndpoint = ErEndpoint("node2", 20201), tag = "worker")
+  val clusterNode2: ErProcessor = ErProcessor(id = 2, commandEndpoint = ErEndpoint("node3", 20102), dataEndpoint = ErEndpoint("node3", 20202), tag = "worker")
 
-  val localNode0 = ErProcessor(id = 0, commandEndpoint = ErEndpoint("127.0.0.1", 20100), dataEndpoint = ErEndpoint("127.0.0.1", 20200), tag = "boss")
-  val localNode1 = ErProcessor(id = 1, commandEndpoint = ErEndpoint("127.0.0.1", 20101), dataEndpoint = ErEndpoint("127.0.0.1", 20201), tag = "worker")
+  val localNode0: ErProcessor = ErProcessor(id = 0, commandEndpoint = ErEndpoint("127.0.0.1", 20100), dataEndpoint = ErEndpoint("127.0.0.1", 20200), tag = "boss")
+  val localNode1: ErProcessor = ErProcessor(id = 1, commandEndpoint = ErEndpoint("127.0.0.1", 20101), dataEndpoint = ErEndpoint("127.0.0.1", 20201), tag = "worker")
 
   def getLiveProcessorBatch(clusterId: Long = -1): ErProcessorBatch = {
     val cluster = ClusterManager.mode match {
@@ -145,10 +189,10 @@ class ClusterManager extends Serializable {
     cluster
   }
 
-  def getRollFrameStore(name: String, namespace: String): ErStore = {
+  def getRollFrameStore(name: String, namespace: String, storeType: String = StringConstants.FILE): ErStore = {
     // TODO:How to get partition num, frameBatch count?
     val storeLocator = ErStoreLocator(
-      storeType = StringConstants.FILE,
+      storeType = storeType,
       namespace = namespace,
       name = name)
     val partitions = ClusterManager.mode match {
@@ -159,7 +203,8 @@ class ClusterManager extends Serializable {
       )
       case _ => Array(
         ErPartition(id = 0, storeLocator = storeLocator, processor = localNode0),
-        ErPartition(id = 1, storeLocator = storeLocator, processor = localNode1))
+        ErPartition(id = 1, storeLocator = storeLocator, processor = localNode1),
+        ErPartition(id = 2,storeLocator = storeLocator,processor = localNode1))
     }
     ErStore(storeLocator = storeLocator, partitions = partitions)
   }
@@ -204,10 +249,14 @@ class ClusterManager extends Serializable {
       }
     }
   }
+
+  def setMode(mode: String): Unit = {
+    ClusterManager.setMode(mode)
+  }
 }
 
 object ClusterManager {
-  var mode: String = "local"
+  var mode: String = "cluster"
 
   def getOrCreate(): ClusterManager = new ClusterManager
 

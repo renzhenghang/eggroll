@@ -6,11 +6,13 @@
 __pycache__
 .jar
 .class
-
-log
+# excluded paths
+logs
 META-INF
 target
+build
+audit
 out
 
-# excluded paths
+
 

@@ -26,6 +26,10 @@ class RollFrameService() extends RollFrame {
   val scheduler = new ListScheduler
   val clusterManager = new ClusterManager
 
+  def mulMul(job: ErJob) : ErJob = {
+    run(new TorchTask(uri = new CommandURI("EggFrame.runTask"),job = job))
+  }
+
   def mapBatches(job: ErJob): ErJob = {
     // todo: deal with output
     run(new MapBatchTask(uri = new CommandURI("EggFrame.runTask"), job = job))
