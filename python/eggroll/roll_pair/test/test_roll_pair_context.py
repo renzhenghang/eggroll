@@ -17,7 +17,7 @@
 import os
 import unittest
 
-from eggroll.core.conf_keys import DeployConfKeys, SessionConfKeys, \
+from eggroll.core.conf_keys import CoreConfKeys, SessionConfKeys, \
   ClusterManagerConfKeys
 # from roll_pair_test_assets import *
 from eggroll.core.session import ErSession
