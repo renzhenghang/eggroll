@@ -20,11 +20,11 @@ def create_pair_adapter(options: dict):
     # TODO:0: rename type name?
     if options["store_type"] == StoreTypes.ROLLPAIR_LMDB \
             or options["store_type"] == StoreTypes.ROLLPAIR_IN_MEMORY:
-      from eggroll.core.pair_store.lmdb import LmdbAdapter
-      ret = LmdbAdapter(options=options)
+        from eggroll.core.pair_store.lmdb import LmdbAdapter
+        ret = LmdbAdapter(options=options)
     elif options["store_type"] == StoreTypes.ROLLPAIR_LEVELDB:
-      from eggroll.core.pair_store.rocksdb import RocksdbAdapter
-      ret = RocksdbAdapter(options=options)
+        from eggroll.core.pair_store.rocksdb import RocksdbAdapter
+        ret = RocksdbAdapter(options=options)
     elif options["store_type"] == StoreTypes.ROLLFRAME_FILE:
         ret = FileAdapter(options=options)
     elif options["store_type"] == StoreTypes.ROLLPAIR_MMAP:
