@@ -685,7 +685,11 @@ class RollPair(object):
     def map_partitions(self, func, output=None, options: dict = None):
         if options is None:
             options = {}
+
+        need_shuffle = options.get('need_shuffle', True)
         functor = ErFunctor(name=RollPair.MAP_PARTITIONS, serdes=SerdesTypes.CLOUD_PICKLE, body=cloudpickle.dumps(func))
+        shuffle = ErFunctor(name=RollPair.MAP_PARTITIONS, serdes=SerdesTypes.CLOUD_PICKLE,
+                            body=cloudpickle.dumps(need_shuffle))
         outputs = []
         if output:
             outputs.append(output)
@@ -693,7 +697,7 @@ class RollPair(object):
                     name=RollPair.MAP_PARTITIONS,
                     inputs=[self.__store],
                     outputs=outputs,
-                    functors=[functor])
+                    functors=[functor, shuffle])
 
         job_result = self.__command_client.simple_sync_send(
                 input=job,
@@ -738,7 +742,10 @@ class RollPair(object):
     def flat_map(self, func, output=None, options: dict = None):
         if options is None:
             options = {}
+
+        need_shuffle = options.get('need_shuffle', True)
         functor = ErFunctor(name=RollPair.FLAT_MAP, serdes=SerdesTypes.CLOUD_PICKLE, body=cloudpickle.dumps(func))
+        shuffle = ErFunctor(name=RollPair.FLAT_MAP, serdes=SerdesTypes.CLOUD_PICKLE, body=cloudpickle.dumps(need_shuffle))
         outputs = []
         if output:
             outputs.append(output)
@@ -747,7 +754,7 @@ class RollPair(object):
                     name=RollPair.FLAT_MAP,
                     inputs=[self.__store],
                     outputs=outputs,
-                    functors=[functor])
+                    functors=[functor, shuffle])
 
         job_result = self.__command_client.simple_sync_send(
                 input=job,

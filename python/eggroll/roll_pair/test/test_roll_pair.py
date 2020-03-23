@@ -258,7 +258,8 @@ class TestRollPairBase(unittest.TestCase):
     def test_flatMap(self):
         options = get_default_options()
         options['include_key'] = False
-        rp = self.ctx.load("ns1", "test_flat_map", options=options).put_all(range(5), options=options)
+        options['total_partitions'] = 3
+        rp = self.ctx.load("ns1", "test_flat_map_3p_s", options=options).put_all(range(5), options=options)
         import random
 
         def foo(k, v):

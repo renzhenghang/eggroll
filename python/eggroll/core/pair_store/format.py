@@ -225,15 +225,15 @@ class PairBinWriter(object):
 
     def __init__(self, pair_buffer):
         self.__buf = pair_buffer
-        self.__data = pair_buffer.data
+        # self.__data = pair_buffer.data
         self.__offset = 0
         PairBinWriter.write_head(self.__buf)
 
     def write(self, key_bytes, value_bytes):
-        len_k = len(key_bytes)
-        len_v = len(value_bytes)
-        pack_into('>isis', self.__data, self.__offset, len_k, key_bytes, len_v, value_bytes)
-        # PairBinWriter.write_pair(self.__buf, key_bytes, value_bytes)
+        # len_k = len(key_bytes)
+        # len_v = len(value_bytes)
+        # pack_into('>isis', self.__data, self.__offset, len_k, key_bytes, len_v, value_bytes)
+        PairBinWriter.write_pair(self.__buf, key_bytes, value_bytes)
 
     def write_all(self, items):
         for k, v in items:
