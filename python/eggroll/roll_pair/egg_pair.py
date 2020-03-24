@@ -231,7 +231,7 @@ class EggPair(object):
                 f = create_functor(functors[0]._body)
                 for k1, v1 in input_iterator:
                     for k2, v2 in f(key_serdes.deserialize(k1), value_serdes.deserialize(v1)):
-                        shuffle_broker.put(key_serdes.serialize(k2), value_serdes.serialize(v2))
+                        shuffle_broker.put((key_serdes.serialize(k2), value_serdes.serialize(v2)))
             self._run_unary(flat_map_wrapper, task, shuffle=shuffle)
 
         elif task._name == 'glom':
