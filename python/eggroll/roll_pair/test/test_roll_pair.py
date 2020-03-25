@@ -154,7 +154,7 @@ class TestRollPairBase(unittest.TestCase):
         data = [("k1", "v1"), ("k2", "v2"), ("k3", "v3"), ("k4", "v4")]
         table = self.ctx.load('ns1', 'test_delete_one', options=options).put_all(data, options=options)
         print("before delete:{}".format(list(table.get_all())))
-        table.delete("k1")
+        print(table.delete("k1"))
         print("after delete:{}".format(list(table.get_all())))
         self.assertEqual(get_value(table), ([("k2", "v2"), ("k3", "v3"), ("k4", "v4")]))
 

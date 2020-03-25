@@ -571,6 +571,7 @@ class RollPair(object):
                 command_uri=CommandURI(f'{RollPair.EGG_PAIR_URI_PREFIX}/{RollPair.RUN_TASK}'),
                 serdes_type=self.__command_serdes
         )
+        return self.value_serdes.deserialize(job_resp._value) if job_resp._value != b'' else None
 
     @_method_profile_logger
     def take(self, n: int, options: dict = None):
@@ -877,10 +878,12 @@ class RollPair(object):
 
     @_method_profile_logger
     def sample(self, fraction, seed=None, output=None, options: dict = None):
+        if fraction < 0 or fraction > 1:
+            raise ValueError("fraction must be in [0, 1]")
         if options is None:
             options = {}
         er_fraction = ErFunctor(name=RollPair.REDUCE, serdes=SerdesTypes.CLOUD_PICKLE, body=cloudpickle.dumps(fraction))
-        er_seed  = ErFunctor(name=RollPair.REDUCE, serdes=SerdesTypes.CLOUD_PICKLE, body=cloudpickle.dumps(seed))
+        er_seed = ErFunctor(name=RollPair.REDUCE, serdes=SerdesTypes.CLOUD_PICKLE, body=cloudpickle.dumps(seed))
 
         outputs = []
         if output:
