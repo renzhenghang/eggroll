@@ -39,18 +39,6 @@ void store2gmp(mpz_t z, void *address, unsigned int BITS ) {
   mpz_import(z, (BITS+31)/32, -1, sizeof(uint32_t), 0, 0, (uint32_t *)address);
 }
 
-void getprimeover(mpz_t rop, int bits, int &seed_start){
-  gmp_randstate_t state;
-  gmp_randinit_default(state);
-  gmp_randseed_ui(state, seed_start);
-  seed_start++;
-  mpz_t rand_num;
-  mpz_init(rand_num);
-  mpz_urandomb(rand_num, state, bits);
-  mpz_setbit(rand_num, bits-1);
-  mpz_nextprime(rop, rand_num); 
-  mpz_clear(rand_num);
-}
 
 void invert(mpz_t rop, mpz_t a, mpz_t b) {
   mpz_invert(rop, a, b);
@@ -65,7 +53,6 @@ class PaillierPublicKey {
 };
 
 
-// template<unsigned int BITS>
 class PaillierPrivateKey {
  public:
   cgbn_mem_t<CPH_BITS> p;
@@ -78,7 +65,7 @@ class PaillierPrivateKey {
 };
 
 struct PaillierEncryptedNumber {
-  char cipher[CPH_BITS/8];
+  char *cipher; // expected size: CPH_BITS/8 bytes
   int32_t exponent;
   int32_t base;
 };
@@ -453,19 +440,6 @@ void reset() {
   cudaFree(gpu_pub_key);
   cudaFree(gpu_priv_key);
 }
-
-// void call_raw_encrypt(gpu_cph *plains_on_gpu, const uint32_t count, gpu_cph *ciphers) {
-//   // plains_on_gpu, res all on gpu
-//   gpu_cph *ciphers;
-//   int TPB = 128;
-//   int IPB = TPB/TPI;
-
-//   int block_size = (count + IPB - 1)/IPB;
-//   int thread_size = TPB;
-
-//   raw_encrypt<<<block_size, thread_size>>>(gpu_pub_key, err_report, plains_on_gpu, ciphers, count);
-
-// }
 
 void call_raw_encrypt_obfs(plain_t *plains_on_gpu, const uint32_t count,  \
   char *ciphers_on_gpu, uint32_t* rand_vals_gpu) {
