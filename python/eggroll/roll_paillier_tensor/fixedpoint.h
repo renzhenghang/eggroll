@@ -4,10 +4,10 @@
 #define PLAIN_INT64
 
 #ifdef PLAIN_INT32
-  typedef plain_t int32_t;
+  typedef plain_t uint32_t;
 #else
   #ifdef PLAIN_INT64
-  typedef plain_t int64_t;
+  typedef plain_t uint64_t;
   #endif
 #endif
 struct FixedPointNumber {
