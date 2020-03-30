@@ -39,26 +39,50 @@ def num2Mng(data, pub):
 
 
 def add(x, y, pub):
-    # return x + y
-    # if x and y are paillier tensor, add them together with add_gpu
-    # if x or y is numpy tensor and the other one is paillier tensor?
-    x_encoded = np.vectorize(FixedPointNumber.encode)(x)
-    y_encoded = np.vectorize(FixedPointNumber.encode)(x)
-
+    """
+    if x and y are paillier tensor, align, add.
+    if x or y is numpy tensor and the other one is paillier tensor,
+      fast encrypt and call recursively
+    """
+    # steps:
+    #   flatten the numpy array
+    #   align
+    #   add together
+    pass
 
 def scalar_mul(x, s, pub):
+    """
+    scala multiplication of x(vector) and s(scala)
+    x: numpy array of PaillierEncryptedNumber
+    y: FixedPointNumber
+    """
     return x * s
 
 
 def mul(x, s, pub):
+    """
+    return the result of x * s (sematic of "*" explained in numpy)
+    x: numpy array of PaillierEncryptedNumber
+    s: numpy array of FixedPointNumber
+    """
     return x * s
 
 
 def vdot(x, v, pub):
-    return x * v
+    """
+    return the dot product of two vectors
+    x: numpy array of FixedPointNumber
+    y: numpy array of PaillierEncryptedNumber
+    """
+    return np.vdot(x, v)
 
 
 def matmul(x, y, _pub):
+    """
+    return the matrix multiplication of x and y
+    x: numpy ndarray of PaillierEncryptedNumber
+    y: numpy ndarray of FixedPointNumber
+    """
     return x @ y
 
 
