@@ -4,6 +4,7 @@
 *.pyc
 *.jar
 *.class
+*.so
 
 # excluded paths
 jvm/**/target

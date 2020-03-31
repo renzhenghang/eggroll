@@ -8,8 +8,7 @@
 #include <curand.h>
 #include <curand_kernel.h>
 
-#include <chrono>
-#include <random>
+// #include <chrono>
 #include <cassert>
 
 #include "fixedpoint.h"
@@ -441,9 +440,10 @@ void reset() {
   cudaFree(gpu_priv_key);
 }
 
-void call_raw_encrypt_obfs(plain_t *plains_on_gpu, const uint32_t count,  \
-  char *ciphers_on_gpu, uint32_t* rand_vals_gpu) {
+void call_raw_encrypt_obfs(gpu_cph *plains_on_gpu, const uint32_t count,  \
+  gpu_cph *ciphers_on_gpu, uint32_t* rand_vals_gpu) {
   // all parameters on gpu
+
   int TPB = 128;
   int IPB = TPB/TPI;
   int block_size = (count + IPB - 1)/IPB;
@@ -452,11 +452,11 @@ void call_raw_encrypt_obfs(plain_t *plains_on_gpu, const uint32_t count,  \
     raw_encrypt_with_obfs<<<block_size, thread_size>>>(gpu_pub_key, err_report, \
       plains_on_gpu, ciphers_on_gpu, count, rand_vals_gpu);
   else
-    raw_encrypt<<<block_size, thread_size>>>(gpu_pub_key, err_report, plains_on_gpu, ciphers, count);
+    raw_encrypt<<<block_size, thread_size>>>(gpu_pub_key, err_report, plains_on_gpu, ciphers_on_gpu, count);
 
 }
 
-void call_raw_add(char *cipher_a, char *cipher_b, char *cipher_res, const uint32_t count) {
+void call_raw_add(gpu_cph *cipher_a, gpu_cph *cipher_b, gpu_cph *cipher_res, const uint32_t count) {
   // gpu_cph *cipher_a;
   // gpu_cph *cipher_b;
   // gpu_cph *cipher_res;
@@ -486,7 +486,7 @@ void call_raw_add(char *cipher_a, char *cipher_b, char *cipher_res, const uint32
   // cudaFree(cipher_res);
 }
 
-void call_raw_mul(char *cipher_a, plain_t *plain_b, char *cipher_res, const uint32_t count) {
+void call_raw_mul(gpu_cph *cipher_a, plain_t *plain_b, gpu_cph *cipher_res, const uint32_t count) {
   // a is cipher, b is plain
   // gpu_cph *cipher_a;
   gpu_cph *plain_b_ext;
@@ -513,12 +513,10 @@ void call_raw_mul(char *cipher_a, plain_t *plain_b, char *cipher_res, const uint
   raw_mul<<<block_size, thread_size>>>(gpu_pub_key, err_report, cipher_res, cipher_a, \
      plain_b_ext, count);
 
-  cudaMemcpy(res, cipher_res, sizeof(gpu_cph) * count, cudaMemcpyDeviceToHost);
-
   cudaFree(plain_b_ext);
 }
 
-void call_raw_decrypt(char *cipher_gpu, const uint32_t count, plain_t *res) {
+void call_raw_decrypt(gpu_cph *cipher_gpu, const uint32_t count, plain_t *res) {
   gpu_cph *plain_gpu;
   
   cudaMalloc((void **)&plain_gpu, sizeof(gpu_cph) * count);
@@ -545,12 +543,12 @@ void cipher_align(PaillierEncryptedNumber *a, PaillierEncryptedNumber *b, const 
   //   1. figure out whose exponent is bigger
   //   2. perform raw mul
   //   3. copy back to PaillierEncryptedNumber
-  int *map = malloc(sizeof(int) * count);
-  plaint_t *cof = malloc(sizeof(plain_t) * count);
+  int *map = (int *) malloc(sizeof(int) * count);
+  plain_t *cof = (plain_t *) malloc(sizeof(plain_t) * count);
   // 1
   for (int i = 0; i < count; i++) {
     map[i] = a[i].exponent < b[i].exponent ? 0 : 1;
-    cof[i] = (plain_t) pow(a[i].base, abs(a[i] - b[i]));
+    cof[i] = (plain_t) pow(a[i].base, abs(a[i].exponent- b[i].exponent));
   }
   
   gpu_cph *encoding;
@@ -565,7 +563,7 @@ void cipher_align(PaillierEncryptedNumber *a, PaillierEncryptedNumber *b, const 
       cudaMemcpy(encoding + i, b + i, sizeof(gpu_cph), cudaMemcpyHostToDevice);
   }
   // 2
-  call_raw_mul((char *)encoding, (plain_t *)cof, (char *)res, count);
+  call_raw_mul(encoding, (plain_t *)cof, res, count);
   // 3
   for (int i = 0; i < count; i++) {
     if (map[i] == 0)
@@ -594,7 +592,7 @@ void cipher_add_cipher(PaillierEncryptedNumber *a, PaillierEncryptedNumber *b, \
 }
 
 void plain_mul_cipher(FixedPointNumber *b, PaillierEncryptedNumber *a, \
-  PaillierEncryptedNumber *r const int count) {
+   PaillierEncryptedNumber *r, const int count) {
   // perform encrypted multiplication
   // parameters:
   //   b: coefficients, plain text on cpu
@@ -606,7 +604,7 @@ void plain_mul_cipher(FixedPointNumber *b, PaillierEncryptedNumber *a, \
   //   3. copy to cpu
 }
 
-void encrypt(FixedPointNumber *plain, PaillierEncryptedNumber *r, const int count) {
+void encrypt(FixedPointNumber *plain, PaillierEncryptedNumber *r, const int count, const bool obf) {
   // encrypt function.
   // parameters:
   //   plain: in cpu
@@ -624,7 +622,11 @@ void encrypt(FixedPointNumber *plain, PaillierEncryptedNumber *r, const int coun
   for (int i = 0; i < count; i++)
     cudaMemcpy(raw_plain_gpu + i, &plain[i].encoding, sizeof(plain_t), cudaMemcpyHostToDevice);
   
-  call_raw_encrypt(raw_plain_gpu, raw_cipher_gpu, count);
+  unsigned int *obfs = obf ? (unsigned int *)malloc(sizeof(unsigned int) * count) : NULL;
+  if (obf)
+    for (int i = 0; i < count; i++) obfs[i] = rand();
+   
+  call_raw_encrypt_obfs(raw_plain_gpu, count, raw_cipher_gpu, obfs);
 
   for (int i = 0; i < count; i++) {
     r[i].exponent = plain[i].exponent;

@@ -1,13 +1,13 @@
 #ifndef FIXEDPOINTNUMEBR_H_INCLUDED
 #define FIXEDPOINTNUMEBR_H_INCLUDED
 #include <stdint.h>
-#define PLAIN_INT64
+#define PLAIN_INT64 1
 
 #ifdef PLAIN_INT32
-  typedef plain_t uint32_t;
+  typedef uint32_t plain_t;
 #else
   #ifdef PLAIN_INT64
-  typedef plain_t uint64_t;
+  typedef uint64_t plain_t ;
   #endif
 #endif
 struct FixedPointNumber {
