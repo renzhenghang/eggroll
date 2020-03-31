@@ -1,5 +1,6 @@
 import ctypes
 from ctypes import c_char_p, c_int32, c_int64, create_string_buffer
+import ctypes.util
 from functools import wraps
 import random
 from .paillier_exception import *

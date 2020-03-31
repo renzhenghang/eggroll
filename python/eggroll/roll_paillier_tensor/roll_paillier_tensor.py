@@ -22,7 +22,7 @@ L = get_logger()
 
 if os.environ.get("EGGROLL_RPT_ENGINE_MOCK", "0") == "1":
     import eggroll.roll_paillier_tensor.rpt_py_engine as CPUEngine
-    import eggroll.roll_paillier_tensor.rpt_py_engine as GPUEngine
+    import eggroll.roll_paillier_tensor.rpt_gpu_engine as GPUEngine
 else:
     import rptCPU as CPUEngine
     import rptGPU as GPUEngine
