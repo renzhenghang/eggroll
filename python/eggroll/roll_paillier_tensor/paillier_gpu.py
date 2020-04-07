@@ -1,17 +1,39 @@
 import ctypes
-from ctypes import c_char_p, c_int32, c_int64, create_string_buffer
+from ctypes import c_char_p, c_int32, c_int64, create_string_buffer, \
+    Structure, c_bool, c_uint64, c_char, c_byte
 import ctypes.util
 from functools import wraps
 import random
 from .paillier_exception import *
+from federatedml.secureprotol.fate_paillier import PaillierEncryptedNumber
+from federatedml.secureprotol.fixedpoint import FixedPointNumber
 
 CPH_BITS = 2048
 CPH_BYTES = CPH_BITS // 8
+_BASE = 16
 _key_init = False
 
+class c_FixedPointNumber(Structure):
+    _fields_ = [
+        ('encoding', c_uint64),
+        ('exponent', c_int32),
+        ('base', c_int32)
+    ]
+
+class c_PaillierEncryptedNumber(Structure):
+    _fields_ = [
+        ('cipher', c_byte * CPH_BYTES),
+        ('exponent', c_int32),
+        ('base', c_int32)
+    ]
+    def __init__(self, pen):
+        c_cipher = (c_byte * CPH_BYTES).from_buffer(create_string_buffer(pen.ciphertext(be_secure=False).to_bytes(CPH_BYTES, 'little')))
+        super(c_PaillierEncryptedNumber, self).__init__(cipher=c_cipher, \
+             exponent=pen.exponent, base=_BASE)
 def _load_cuda_lib():
-    path = ctypes.util.find_library('paillier.so')
-    if path == '':
+    path = '/home/zhenghang/work_dir/eggroll/lib/paillier_gpu.so'
+    # print(path)
+    if path is None:
         raise CudaLibLoadErr('Cuda Lib Not Found, please check LD_LIBRARY_PATH')
     lib = ctypes.CDLL(path)
     return lib
@@ -36,6 +58,7 @@ def init_gpu_keys(pub_key, priv_key):
     c_max_int = c_char_p(pub_key.max_int.to_bytes(CPH_BYTES, 'little'))
 
     _cuda_lib.init_pub_key(c_n, c_g, c_nsquare, c_max_int)
+    print('n in cpu:', hex(pub_key.n))
 
     c_p = c_char_p(priv_key.p.to_bytes(CPH_BYTES, 'little'))
     c_q = c_char_p(priv_key.q.to_bytes(CPH_BYTES, 'little'))
@@ -126,3 +149,87 @@ def raw_decrypt_gpu(ciphers):
     _cuda_lib.call_raw_decrypt(in_cipher, c_count, res_p)
 
     return get_int(res_p.raw, ins_num, 4)
+
+
+@check_key
+def encrypt(values, obf=True):
+    # values: list of Fixed Point Number
+    global _cuda_lib
+    # [print(v.encoding) for v in values]
+    fpn_list = [
+        c_FixedPointNumber(encoding=v.encoding, exponent=v.exponent, base=v.BASE) for v in values
+    ]
+
+    fpn_array_t = c_FixedPointNumber * len(values)
+    fpn_array = fpn_array_t(*fpn_list)
+
+
+    pen_buffer = create_string_buffer(CPH_BYTES * len(values))
+    # print('after assign:')
+    # [print(v.encoding) for v in fpn_array]
+    _cuda_lib.encrypt(fpn_array, pen_buffer, c_int32(len(values)), c_bool(obf))
+    # print(pen_buffer.raw.hex()[:CPH_BYTES * 2])
+    cipher_list = get_int(pen_buffer.raw, len(values), CPH_BYTES)
+    pen_list = [
+        PaillierEncryptedNumber(None, cipher_list[i], values[i].exponent) \
+            for i in range(len(values))
+    ]
+    # print('cipher', cipher_list[0])
+    return pen_list
+
+@check_key
+def decrypt(values):
+    global _cuda_lib
+    pen_list = [
+        # c_PaillierEncryptedNumber(cipher=v.ciphertext(be_secure=False).to_bytes(CPH_BYTES, 'little') ,\
+            #  exponent=v.exponent, base=FixedPointNumber.BASE) \
+        # for v in values
+        c_PaillierEncryptedNumber(v) for v in values
+    ]
+    pen_array = (c_PaillierEncryptedNumber * len(values))(*pen_list)
+    plain_buffer = create_string_buffer(8 * len(values))
+    _cuda_lib.decrypt(pen_array, plain_buffer, len(values))
+
+    plains = get_int(plain_buffer.raw, len(values), 8)
+
+    fpn_list = [
+        FixedPointNumber(plains[i], values[i].exponent) for i in range(len(values))
+    ]
+    
+    return fpn_list
+
+
+@check_key
+def add_impl(a_list, b_list):
+    global _cuda_lib
+    # pass
+    a_pen_list = [
+        # c_PaillierEncryptedNumber(cipher=v.ciphertext(be_secure=False).to_bytes(CPH_BYTES, 'little') ,\
+            #  exponent=v.exponent, base=FixedPointNumber.BASE) \
+        # for v in a_list
+        c_PaillierEncryptedNumber(v) for v in a_list
+    ]
+    a_pen_array = (c_PaillierEncryptedNumber * len(a_list))(*a_pen_list)
+
+    b_pen_list = [
+        # c_PaillierEncryptedNumber(cipher=v.ciphertext(be_secure=False).to_bytes(CPH_BYTES, 'little') ,\
+            #  exponent=v.exponent, base=FixedPointNumber.BASE) \
+        # for v in b_list
+        c_PaillierEncryptedNumber(v) for v in b_list
+    ]
+    b_pen_array = (c_PaillierEncryptedNumber * len(b_list))(*b_pen_list)
+
+    _cuda_lib.cipher_align(a_pen_array, b_pen_array, len(a_list))
+
+    # show cipher align result
+
+    # print('=====cipher compare=====')
+    # [print(hex(v.ciphertext(be_secure=False))) for v in a_list]
+    # print('=======================')
+    # [print(hex(int.from_bytes(a_pen_array[i].cipher, 'little'))) for i in range(len(a_list))]
+    for i in range(len(a_list)):
+        a_list[i] = PaillierEncryptedNumber(None, int.from_bytes(a_pen_array[i].cipher, 'little'),\
+            a_pen_array[i].exponent)
+        b_list[i] = PaillierEncryptedNumber(None, int.from_bytes(b_pen_array[i].cipher, 'little'),\
+            b_pen_array[i].exponent)
+    # print(a_pen_array[0])

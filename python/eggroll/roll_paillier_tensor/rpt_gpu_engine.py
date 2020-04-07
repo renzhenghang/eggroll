@@ -1,6 +1,5 @@
 
-from .paillier_gpu import init_gpu_keys, init_err_report, \
-     raw_encrypt_gpu, raw_encrypt_obfs_gpu, raw_add_gpu, raw_mul_gpu, raw_decrypt_gpu
+from eggroll.roll_paillier_tensor import paillier_gpu
 
 from federatedml.secureprotol.fate_paillier import PaillierKeypair, PaillierPublicKey, PaillierEncryptedNumber
 from federatedml.secureprotol.fixedpoint import FixedPointNumber

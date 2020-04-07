@@ -88,7 +88,7 @@ class PaillierPublicKey(object):
             ciphertext = gmpy_math.invert(neg_ciphertext, self.nsquare)
         else:
             ciphertext = (self.n * plaintext + 1) % self.nsquare
-
+        # print('cipher: ', ciphertext)
         ciphertext = self.apply_obfuscator(ciphertext, random_value)
 
         return ciphertext
@@ -208,8 +208,8 @@ class PaillierEncryptedNumber(object):
         if not isinstance(self.__ciphertext, int):
             raise TypeError("ciphertext should be an int, not: %s" % type(self.__ciphertext))
 
-        if not isinstance(self.public_key, PaillierPublicKey):
-            raise TypeError("public_key should be a PaillierPublicKey, not: %s" % type(self.public_key))
+        # if not isinstance(self.public_key, PaillierPublicKey):
+        #     raise TypeError("public_key should be a PaillierPublicKey, not: %s" % type(self.public_key))
 
     def ciphertext(self, be_secure=True):
         """return the ciphertext of the PaillierEncryptedNumber.
