@@ -43,25 +43,39 @@ class TestGpuCode(unittest.TestCase):
         pass
 
     def testAdd(self):
-        fpn_list1 = generate_fpn(1000)
-        fpn_list2 = generate_fpn(1000)
+        fpn_list1 = generate_fpn(10)
+        fpn_list2 = generate_fpn(10)
         pen_list1 = encrypt(fpn_list1, False)
         pen_list2 = encrypt(fpn_list2, False)
 
-        add_impl(pen_list1, pen_list2)
+        add_res = add_impl(pen_list1, pen_list2)
+        std_add_res = [pen_list1[i] + pen_list2[i] for i in range(10)]
 
-        dec_1 = decrypt(pen_list1)
-        dec_2 = decrypt(pen_list2)
-
-        print('=============testAdd============')
-        print('before align')
+        decry_list = decrypt(add_res)
+        std_dec_res = decrypt(std_add_res)
+        print('before add')
         print('a_encoding\t\ta_exponent\t\tb_encoding\t\tb_exponent')
         [print(hex(fpn_list1[i].encoding), hex(fpn_list1[i].exponent),\
              hex(fpn_list2[i].encoding), hex(fpn_list2[i].exponent), sep='\t\t') for i in range(10)]
-        print('after align')
-        print('a_encoding\t\ta_exponent\t\tb_encoding\t\tb_exponent')
-        [print(hex(dec_1[i].encoding), hex(dec_1[i].exponent),\
-             hex(dec_2[i].encoding), hex(dec_2[i].exponent), sep='\t\t') for i in range(10)]
+        print('after add')
+        print('res_encoding\t\tres_exponent')
+        [print(hex(decry_list[i].encoding), hex(decry_list[i].exponent), sep='\t\t') for i in range(10)]
+        print('std res')
+        print('res_encoding\t\tres_exponent')
+        [print(hex(std_dec_res[i].encoding), hex(std_dec_res[i].exponent), sep='\t\t') for i in range(10)]
+
+        # dec_1 = decrypt(pen_list1)
+        # dec_2 = decrypt(pen_list2)
+
+        # print('=============testAdd============')
+        # print('before align')
+        # print('a_encoding\t\ta_exponent\t\tb_encoding\t\tb_exponent')
+        # [print(hex(fpn_list1[i].encoding), hex(fpn_list1[i].exponent),\
+        #      hex(fpn_list2[i].encoding), hex(fpn_list2[i].exponent), sep='\t\t') for i in range(10)]
+        # print('after align')
+        # print('a_encoding\t\ta_exponent\t\tb_encoding\t\tb_exponent')
+        # [print(hex(dec_1[i].encoding), hex(dec_1[i].exponent),\
+        #      hex(dec_2[i].encoding), hex(dec_2[i].exponent), sep='\t\t') for i in range(10)]
         # pass
 
     def testMatMul(self):

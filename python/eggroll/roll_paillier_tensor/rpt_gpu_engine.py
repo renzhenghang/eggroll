@@ -33,21 +33,28 @@ def dump_prv_key(priv):
 
 
 def num2Mng(data, pub):
-    return data
-    # return np.vectorize(FixedPointNumber.encode)(data)
+    shape = data.shape
+    d_list = data.flatten()
+    res = paillier_gpu.encrypt(d_list, obf=False) # Fast Encrypt
+    return np.reshape(res, shape)
 
 
 def add(x, y, pub):
     """
     if x and y are paillier tensor, align, add.
     if x or y is numpy tensor and the other one is paillier tensor,
-      fast encrypt and call recursively
+      fast encrypt(num2Mng) and call recursively
     """
     # steps:
     #   flatten the numpy array
     #   align
     #   add together
-    pass
+    x_shape = x.shape
+    # TODO: CHECK x_shape == y_shape
+    x_list = x.flatten()
+    y_list = y.flatten()
+    res = paillier_gpu.add_impl(x_list, y_list)
+    return np.reshape(res, x_shape)
 
 def scalar_mul(x, s, pub):
     """
@@ -119,7 +126,7 @@ def encrypt_and_obfuscate(data, pub, obfs=None):
 
 def keygen():
     pub, priv = PaillierKeypair().generate_keypair()
-    init_gpu_keys(pub, priv)
+    paillier_gpu.init_gpu_keys(pub, priv)
 
     return pub, priv
 

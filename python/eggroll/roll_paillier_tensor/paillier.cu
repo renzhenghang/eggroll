@@ -103,6 +103,19 @@ inline void extractPen(gpu_cph *dst, PaillierEncryptedNumber *src, uint32_t coun
   }
 }
 
+inline void penFromBuffer(PaillierEncryptedNumber *dst, gpu_cph *src, uint32_t count, MemcpyType type) {
+  for (int i = 0; i < count; i++) {
+    if (type == HostToHost)
+      memcpy((dst + i)->cipher, src + i, sizeof(gpu_cph));
+    else if (type == HostToDevice)
+      cudaMemcpy((dst + i)->cipher, src + i, sizeof(gpu_cph), cudaMemcpyHostToDevice);
+    else if (type == DeviceToHost)
+      cudaMemcpy((dst + i)->cipher, src + i, sizeof(gpu_cph), cudaMemcpyDeviceToHost);
+    else if (type == DeviceToDevice)
+      cudaMemcpy((dst + i)->cipher, src + i, sizeof(gpu_cph), cudaMemcpyDeviceToDevice);
+  }
+}
+
 // template<unsigned int _BITS, unsigned int _TPI>
 __device__ __forceinline__ 
 void mont_modular_power(env_cph_t &bn_env, env_cph_t::cgbn_t &result, 
@@ -631,6 +644,24 @@ void cipher_add_cipher(PaillierEncryptedNumber *a, PaillierEncryptedNumber *b, \
   //   2. perform raw add
   //   3. copy to cpu
   cipher_align(a, b, count);
+  gpu_cph *cipher_a;
+  gpu_cph *cipher_b;
+  gpu_cph *cipher_res;
+  cudaMallocAndSet((void **)&cipher_a, sizeof(gpu_cph) * count);
+  cudaMallocAndSet((void **)&cipher_b, sizeof(gpu_cph) * count);
+  cudaMallocAndSet((void **)&cipher_res, sizeof(gpu_cph) * count);
+
+  extractPen(cipher_a, a, count, HostToDevice);
+  extractPen(cipher_b, b, count, HostToDevice);
+
+  call_raw_add(cipher_a, cipher_b, cipher_res, count);
+  penFromBuffer(r, cipher_res, count, DeviceToHost);
+
+  for (int i = 0; i < count; i++) {
+    r[i].exponent = a[i].exponent;
+    r[i].base = a[i].base;
+  }
+  
 }
 
 void plain_mul_cipher(FixedPointNumber *b, PaillierEncryptedNumber *a, \
