@@ -504,53 +504,25 @@ void call_raw_encrypt_obfs(gpu_cph *plains_on_gpu, const uint32_t count,  \
 }
 
 void call_raw_add(gpu_cph *cipher_a, gpu_cph *cipher_b, gpu_cph *cipher_res, const uint32_t count) {
-  // gpu_cph *cipher_a;
-  // gpu_cph *cipher_b;
-  // gpu_cph *cipher_res;
   
   int TPB = 128;
   int IPB = TPB/TPI;
-
-  // cudaMalloc((void **)&cipher_a, sizeof(gpu_cph) * count);
-  // cudaMalloc((void **)&cipher_b, sizeof(gpu_cph) * count);
-  // cudaMalloc((void **)&cipher_res, sizeof(gpu_cph) * count);
-
-  // cudaMemset((void *)cipher_a, 0, sizeof(gpu_cph) * count);
-  // cudaMemset((void *)cipher_b, 0, sizeof(gpu_cph) * count);
-
-  // cudaMemcpy(cipher_a, a, sizeof(gpu_cph) * count, cudaMemcpyHostToDevice);
-  // cudaMemcpy(cipher_b, b, sizeof(gpu_cph) * count, cudaMemcpyHostToDevice);
 
   int block_size = (count + IPB - 1) / IPB;
   int thread_size = TPB;
 
   raw_add<<<block_size, thread_size>>>(gpu_pub_key, err_report, cipher_res, cipher_a, cipher_b, count);
 
-  // cudaMemcpy(res, cipher_res, sizeof(gpu_cph) * count, cudaMemcpyDeviceToHost);
-
-  // cudaFree(cipher_a);
-  // cudaFree(cipher_b);
-  // cudaFree(cipher_res);
 }
 
 void call_raw_mul(gpu_cph *cipher_a, plain_t *plain_b, gpu_cph *cipher_res, const uint32_t count) {
   // a is cipher, b is plain
-  // gpu_cph *cipher_a;
   gpu_cph *plain_b_ext;
-  // gpu_cph *cipher_res;
   
   int TPB = 128;
   int IPB = TPB/TPI;
 
   cudaMallocAndSet((void **)&plain_b_ext, sizeof(gpu_cph) * count);
-  // cudaMalloc((void **)&cipher_a, sizeof(gpu_cph) * count);
-  // cudaMalloc((void **)&plain_b_ext, sizeof(gpu_cph) * count);
-  // cudaMalloc((void **)&cipher_res, sizeof(gpu_cph) * count);
-
-  // cudaMemset((void *)cipher_a, 0, sizeof(gpu_cph) * count);
-  // cudaMemset((void *)plain_b_ext, 0, sizeof(gpu_cph) * count);
-
-  // cudaMemcpy(cipher_a, a, sizeof(gpu_cph) * count, cudaMemcpyHostToDevice);
 
   for (int i = 0; i < count; i++)
     cudaMemcpy(plain_b_ext + i, plain_b + i, sizeof(plain_t), cudaMemcpyDeviceToDevice);
@@ -634,6 +606,10 @@ void cipher_align(PaillierEncryptedNumber *a, PaillierEncryptedNumber *b, const 
  
 }
 
+void increase_exponent_to(PaillierEncryptedNumber *a, uint32_t *inc, PaillierEncryptedNumber *res) {
+  
+}
+
 void cipher_add_cipher(PaillierEncryptedNumber *a, PaillierEncryptedNumber *b, \
   PaillierEncryptedNumber *r, const uint32_t count) {
   // perform encrypted add on PEN
@@ -675,6 +651,27 @@ void plain_mul_cipher(FixedPointNumber *b, PaillierEncryptedNumber *a, \
   //   1. perform raw mul
   //   2. add exponent together.
   //   3. copy to cpu
+  plain_t *plain_gpu;
+  gpu_cph *cipher_gpu;
+  gpu_cph *cipher_res;
+  cudaMallocAndSet((void **)&plain_gpu, sizeof(plain_t) * count);
+  cudaMallocAndSet((void **)&cipher_gpu, sizeof(gpu_cph) * count);
+  cudaMallocAndSet((void **)&cipher_res, sizeof(gpu_cph) * count);
+
+  extractPen(cipher_gpu, a, count, HostToDevice);
+  for (int i = 0; i < count; i++)
+    cudaMemcpy(plain_gpu + i, &((b + i)->encoding), sizeof(plain_t), cudaMemcpyHostToDevice);
+  
+  call_raw_mul(cipher_gpu, plain_gpu, cipher_res, count);
+  for (int i = 0; i < count; i++) {
+    cudaMemcpy((r + i)->cipher, cipher_res + i, sizeof(gpu_cph), cudaMemcpyDeviceToHost);
+    (r + i)->base = (a + i)->base;
+    (r + i)->exponent = (a + i)->exponent + (b + i)->exponent;
+  }
+
+  cudaFree(plain_gpu);
+  cudaFree(cipher_gpu);
+  cudaFree(cipher_res);
 }
 
 void encrypt(FixedPointNumber *plain, gpu_cph *r, const int32_t count, const bool obf) {
@@ -712,7 +709,7 @@ void encrypt(FixedPointNumber *plain, gpu_cph *r, const int32_t count, const boo
   if (obf) cudaFree(obfs);
 }
 
-void decrypt(PaillierEncryptedNumber *cipher, plain_t *r, const int count) {
+void decrypt(PaillierEncryptedNumber *cipher, plain_t *r, const int32_t count) {
   // perform decrypt
   // parameters:
   //   cipher: in cpu
@@ -735,5 +732,59 @@ void decrypt(PaillierEncryptedNumber *cipher, plain_t *r, const int count) {
   cudaFree(raw_cipher_gpu);
 }
 
+
+void sum(PaillierEncryptedNumber *cipher, PaillierEncryptedNumber *res, const int32_t count) {
+  // sum
+  // parameters:
+  //  cipher: in cpu
+  //  r: in cpu
+  // steps:
+  //  1. copy to gpu
+  //  2. align
+  //  3. perform raw add on half
+  //  4. loop until only one left
+
+  // if count is odd, add one
+  printf("count: %d\n", count);
+  int32_t num_elem = count % 2 == 1 ? count + 1 : count;
+  gpu_cph *ciphers_buf[2];
+  plain_t *inc;
+  cudaMallocAndSet((void **)&ciphers_buf[0], sizeof(gpu_cph) * num_elem);
+  cudaMallocAndSet((void **)&ciphers_buf[1], sizeof(gpu_cph) * num_elem);
+  cudaMallocManaged((void **)&inc, sizeof(plain_t) * count);
+
+  uint32_t max_exponent = 0;
+  for (int i = 0; i < count; i++)
+    max_exponent = max_exponent < cipher[i].exponent ? cipher[i].exponent : max_exponent;
+  for (int i = 0; i < count; i++) {
+    inc[i] = (int32_t) pow(cipher[i].base, max_exponent - cipher[i].exponent);
+    printf("inc[%d]: %d\n", i, inc[i]);
+  }
+
+  extractPen(ciphers_buf[0], cipher, count, HostToDevice);
+  call_raw_mul(ciphers_buf[0], inc, ciphers_buf[1], count);
+  
+  if (count % 2 == 1)
+    cudaMemset(ciphers_buf[1] + num_elem - 1, 1, 1);
+    
+  uint32_t dst_index = 0;
+  gpu_cph *dst_buf;
+  gpu_cph *src_buf;
+  for (int i = num_elem / 2; i >= 1; i /= 2) {
+    dst_buf = ciphers_buf[dst_index % 2];
+    src_buf = ciphers_buf[(dst_index % 2 + 1) % 2];
+    printf("check it %d\n", i);
+    call_raw_add(src_buf, src_buf + i, dst_buf, i);
+    dst_index += 1;
+  }
+
+  cudaMemcpy(res->cipher, dst_buf, sizeof(gpu_cph), cudaMemcpyDeviceToHost);
+  res->base = cipher[0].base;
+  res->exponent = max_exponent;
+
+  cudaFree(ciphers_buf[0]);
+  cudaFree(ciphers_buf[1]);
+  cudaFree(inc);
+}
 
 }// extern "C"

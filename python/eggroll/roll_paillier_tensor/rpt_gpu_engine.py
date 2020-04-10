@@ -38,23 +38,57 @@ def num2Mng(data, pub):
     res = paillier_gpu.encrypt(d_list, obf=False) # Fast Encrypt
     return np.reshape(res, shape)
 
+def brdcst(data1, data2):
+    shape_1 = data1.shape
+    shape_2 = data2.shape
+    brd_1 = data1
+    brd_2 = data2
+
+    def apply_brdcst(data_s, data_g):
+        # data_s has shorter shape length
+        diff = len(data_g.shape) - len(data_s.shape)
+        shape_s = data_s.shape
+        shape_g = data_g.shape
+        shape_g_trunc = shape_g[diff:]
+        for i in reversed(range(len(shape_s))):
+            if shape_s[i] == 1:
+                data_s = np.repeat(data_s, shape_g_trunc[i], axis=i)
+            elif shape_g_trunc[i] == 1:
+                data_g = np.repeat(data_g, shape_s[i], axis=i+diff)
+            elif shape_g_trunc[i] != shape_s[i]:
+                raise ValueError("shape cannot align")
+        for i in reversed(range(diff)):
+            data_s = np.expand_dims(data_s, axis=0)
+            data_s = np.repeat(data_s, shape_g[i], axis=0)
+
+        return data_s, data_g
+    
+    if len(shape_1) < len(shape_2):
+        return apply_brdcst(brd_1, brd_2)
+    else:
+        return apply_brdcst(brd_2, brd_1)
+
 
 def add(x, y, pub):
     """
     if x and y are paillier tensor, align, add.
-    if x or y is numpy tensor and the other one is paillier tensor,
-      fast encrypt(num2Mng) and call recursively
     """
     # steps:
     #   flatten the numpy array
     #   align
     #   add together
     x_shape = x.shape
-    # TODO: CHECK x_shape == y_shape
-    x_list = x.flatten()
-    y_list = y.flatten()
-    res = paillier_gpu.add_impl(x_list, y_list)
-    return np.reshape(res, x_shape)
+    y_shape = y.shape
+    # TODO: brdcst
+    if x_shape == y_shape:
+        x_list = x.flatten()
+        y_list = y.flatten()
+        res = paillier_gpu.add_impl(x_list, y_list)
+        return np.reshape(res, x_shape)
+    else:
+        brd_x, brd_y = brdcst(x, y)
+        return add(brd_x, brd_y, pub)
+
 
 def scalar_mul(x, s, pub):
     """
@@ -62,16 +96,31 @@ def scalar_mul(x, s, pub):
     x: numpy array of PaillierEncryptedNumber
     y: FixedPointNumber
     """
-    return x * s
+    x_shape = x.shape
+    x_flatten = np.flatten(x)
+    s_array = np.array([s for _ in range(len(x_flatten))])
+    
+    res = paillier_gpu.mul_impl(x_flatten, s_array)
+
+    return np.reshape(res, x_shape)
 
 
-def mul(x, s, pub):
+def mul(x, y, pub):
     """
     return the result of x * s (sematic of "*" explained in numpy)
     x: numpy array of PaillierEncryptedNumber
-    s: numpy array of FixedPointNumber
+    y: numpy array of FixedPointNumber
     """
-    return x * s
+    x_shape = x.shape
+    y_shape = y.shape
+    if x_shape == y_shape:
+        x_flatten = np.flatten(x)
+        y_flatten = np.flatten(y)
+        res = paillier_gpu.mul_impl(x_flatten, y_flatten)
+        return np.reshape(res, x_shape)
+    else:
+        brd_x, brd_y = brdcst(x, y)
+        return mul(brd_x, brd_y, pub)
 
 
 def vdot(x, v, pub):
@@ -80,7 +129,14 @@ def vdot(x, v, pub):
     x: numpy array of FixedPointNumber
     y: numpy array of PaillierEncryptedNumber
     """
-    return np.vdot(x, v)
+    # return np.vdot(x, v)
+    x_shape = x.shape
+    # y_shape = y.shape
+    x_flatten = x.flatten()
+    v_flatten = v.flatten()
+    mul_res = paillier_gpu.mul_impl(v_flatten, x_flatten)
+
+    return paillier_gpu.sum_impl(mul_res)
 
 
 def matmul(x, y, _pub):
@@ -97,7 +153,13 @@ def transe(data):
 
 
 def mean(data, pub):
-    return np.array([data.mean(axis=0)])
+    # return np.array([data.mean(axis=0)])
+    d_shape = data.shape
+    d_flatten = data.flatten()
+    res = paillier_gpu.sum_impl(d_flatten)
+    n = len(d_flatten)
+    return res * 1/n
+
 
 
 def hstack(x, y, pub):
@@ -106,10 +168,6 @@ def hstack(x, y, pub):
 
 def decryptdecode(data, pub, priv):
     return np.vectorize(priv.decrypt)(data)
-
-
-# def print(data, pub, priv):
-#     pprint(decryptdecode(data, pub, priv))
 
 
 def encrypt_and_obfuscate(data, pub, obfs=None):
@@ -122,7 +180,6 @@ def encrypt_and_obfuscate(data, pub, obfs=None):
         ciphertext = pub.apply_obfuscator(ciphertext, obf=obf)
         return PaillierEncryptedNumber(pub, ciphertext, encoding.exponent)
     return np.vectorize(func)(data, obfs)
-
 
 def keygen():
     pub, priv = PaillierKeypair().generate_keypair()

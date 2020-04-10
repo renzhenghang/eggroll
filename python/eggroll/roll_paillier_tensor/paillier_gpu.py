@@ -21,6 +21,8 @@ class c_FixedPointNumber(Structure):
         ('exponent', c_int32),
         ('base', c_int32)
     ]
+    def __init__(self, fpn):
+        super(c_FixedPointNumber, self).__init__(encoding=fpn.encoding, exponent=fpn.exponent, base=fpn.BASE)
 
 class c_PaillierEncryptedNumber(Structure):
     _fields_ = [
@@ -28,10 +30,11 @@ class c_PaillierEncryptedNumber(Structure):
         ('exponent', c_int32),
         ('base', c_int32)
     ]
-    def __init__(self, pen):
-        c_cipher = (c_byte * CPH_BYTES).from_buffer(create_string_buffer(pen.ciphertext(be_secure=False).to_bytes(CPH_BYTES, 'little')))
-        super(c_PaillierEncryptedNumber, self).__init__(cipher=c_cipher, \
-             exponent=pen.exponent, base=_BASE)
+    def __init__(self, pen=None):
+        if pen is not None:
+            c_cipher = (c_byte * CPH_BYTES).from_buffer(create_string_buffer(pen.ciphertext(be_secure=False).to_bytes(CPH_BYTES, 'little')))
+            super(c_PaillierEncryptedNumber, self).__init__(cipher=c_cipher, \
+                exponent=pen.exponent, base=_BASE)
 def _load_cuda_lib():
     path = '/home/zhenghang/work_dir/eggroll/lib/paillier_gpu.so'
     # print(path)
@@ -163,7 +166,7 @@ def encrypt(values, obf=True):
     global _cuda_lib
     # [print(v.encoding) for v in values]
     fpn_list = [
-        c_FixedPointNumber(encoding=v.encoding, exponent=v.exponent, base=v.BASE) for v in values
+        c_FixedPointNumber(v) for v in values
     ]
 
     fpn_array_t = c_FixedPointNumber * len(values)
@@ -171,16 +174,15 @@ def encrypt(values, obf=True):
 
 
     pen_buffer = create_string_buffer(CPH_BYTES * len(values))
-    # print('after assign:')
-    # [print(v.encoding) for v in fpn_array]
+
     _cuda_lib.encrypt(fpn_array, pen_buffer, c_int32(len(values)), c_bool(obf))
-    # print(pen_buffer.raw.hex()[:CPH_BYTES * 2])
+
     cipher_list = get_int(pen_buffer.raw, len(values), CPH_BYTES)
     pen_list = [
         PaillierEncryptedNumber(_pub_key, cipher_list[i], values[i].exponent) \
             for i in range(len(values))
     ]
-    # print('cipher', cipher_list[0])
+
     return pen_list
 
 @check_key
@@ -205,7 +207,7 @@ def decrypt(values):
 @check_key
 def add_impl(a_list, b_list):
     global _cuda_lib
-    # pass
+
     a_pen_list = [
         c_PaillierEncryptedNumber(v) for v in a_list
     ]
@@ -216,14 +218,49 @@ def add_impl(a_list, b_list):
     ]
     b_pen_array = (c_PaillierEncryptedNumber * len(b_list))(*b_pen_list)
 
-    # _cuda_lib.cipher_align(a_pen_array, b_pen_array, len(a_list))
     res_pen_array = (c_PaillierEncryptedNumber * len(b_list))()
-    # res_pen_array = None
     _cuda_lib.cipher_add_cipher(a_pen_array, b_pen_array, res_pen_array, len(a_list))
 
     res_list = [PaillierEncryptedNumber(None, ciphertext=int.from_bytes(bytearray(v.cipher), 'little'),\
          exponent=v.exponent) for v in res_pen_array]
-    # res_list = []
-    # [print(bytearray(v.cipher)) for v in res_pen_array]
 
     return res_list
+
+@check_key
+def mul_impl(a_list, b_list):
+    global _cuda_lib
+    a_pen_list = [
+        c_PaillierEncryptedNumber(v) for v in a_list
+    ]
+    a_pen_array = (c_PaillierEncryptedNumber * len(a_list))(*a_pen_list)
+
+    b_fpn_list = [
+        c_FixedPointNumber(v) for v in b_list
+    ] 
+    b_fpn_array = (c_FixedPointNumber * len(b_list))(*b_fpn_list)
+
+    res_pen_array = (c_PaillierEncryptedNumber * len(b_list))()
+    _cuda_lib.plain_mul_cipher(b_fpn_array, a_pen_array, res_pen_array, len(a_list))
+
+    res_list = [
+        PaillierEncryptedNumber(None, ciphertext=int.from_bytes(bytearray(v.cipher), 'little'), \
+            exponent=v.exponent) for v in res_pen_array
+    ]
+    return res_list
+
+
+@check_key
+def sum_impl(a_list):
+    global _cuda_lib
+
+    a_pen_list = [c_PaillierEncryptedNumber(v) for v in a_list]
+    a_pen_array = (c_PaillierEncryptedNumber * len(a_list))(*a_pen_list)
+
+    res_pen = (c_PaillierEncryptedNumber * 1)()
+    print('list:', len(a_list))
+    _cuda_lib.sum(a_pen_array, res_pen, c_int32(len(a_list)))
+
+    res = [PaillierEncryptedNumber(None, ciphertext=int.from_bytes(bytearray(v.cipher), 'little'), \
+        exponent=v.exponent) for v in res_pen]
+
+    return res[0]
