@@ -130,7 +130,6 @@ def vdot(x, v, pub):
     y: numpy array of PaillierEncryptedNumber
     """
     # return np.vdot(x, v)
-    x_shape = x.shape
     # y_shape = y.shape
     x_flatten = x.flatten()
     v_flatten = v.flatten()
@@ -145,7 +144,14 @@ def matmul(x, y, _pub):
     x: numpy ndarray of PaillierEncryptedNumber
     y: numpy ndarray of FixedPointNumber
     """
-    pass
+    if x.shape[1] != y.shape[0]:
+        pass # TODO: REPORT ERROR
+    x_flatten = x.flatten()
+    y_flatten = y.flatten()
+
+    r_list = paillier_gpu.matmul_impl(x_flatten, y_flatten, x.shape, y.shape)
+
+    return r_list.reshape((x.shape[0], y.shape[1]))
 
 
 def transe(data):

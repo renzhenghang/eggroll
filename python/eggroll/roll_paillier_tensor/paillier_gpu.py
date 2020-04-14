@@ -264,3 +264,24 @@ def sum_impl(a_list):
         exponent=v.exponent) for v in res_pen]
 
     return res[0]
+
+
+@check_key
+def matmul_impl(a, b, a_shape, b_shape):
+    global _cuda_lib
+    
+    p = a_shape[0]
+    q = a_shape[1]
+    r = b_shape[1]
+    a_pen_list = [c_PaillierEncryptedNumber(v) for v in a]
+    a_pen_array = (c_PaillierEncryptedNumber * len(a))(*a_pen_list)
+    b_fpn_array = (c_FixedPointNumber * len(b))(*[c_FixedPointNumber(v) for v in b])
+
+    res_pen = (c_PaillierEncryptedNumber * p * r)()
+
+    _cuda_lib.matmul(a_pen_array, b_fpn_array, res_pen, p, q, r)
+
+    r_list = [PaillierEncryptedNumber(None, ciphertext=int.from_bytes(bytearray(v.cipher), 'little'), \
+        exponent=v.exponent) for v in res_pen]
+
+    return r_list
