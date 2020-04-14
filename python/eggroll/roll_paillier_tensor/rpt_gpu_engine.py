@@ -145,7 +145,7 @@ def matmul(x, y, _pub):
     x: numpy ndarray of PaillierEncryptedNumber
     y: numpy ndarray of FixedPointNumber
     """
-    return x @ y
+    pass
 
 
 def transe(data):
@@ -154,12 +154,10 @@ def transe(data):
 
 def mean(data, pub):
     # return np.array([data.mean(axis=0)])
-    d_shape = data.shape
     d_flatten = data.flatten()
     res = paillier_gpu.sum_impl(d_flatten)
     n = len(d_flatten)
     return res * 1/n
-
 
 
 def hstack(x, y, pub):

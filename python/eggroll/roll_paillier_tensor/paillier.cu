@@ -7,6 +7,7 @@
 #include "samples/utility/gpu_support.h"
 #include <curand.h>
 #include <curand_kernel.h>
+#include <math.h>
 
 // #include <chrono>
 #include <cassert>
@@ -390,6 +391,57 @@ __global__ void raw_mul(PaillierPublicKey *gpu_pub_key, cgbn_error_report_t *rep
   cgbn_store(bn_env, ciphers_r + tid, r);
 }
 
+
+__global__ void raw_matmul(PaillierPublicKey *pub_key, cgbn_error_report_t *report, gpu_cph *ciphers_a, \
+gpu_cph *plains_b, gpu_cph *ciphers_res, const uint32_t P, const uint32_t Q, const uint32_t R) {
+  // size: P * Q, Q * R
+  const uint32_t num_elem = P * R;
+  int col = blockIdx.x * blockDim.x + threadIdx.x;
+  int row = blockIdx.y * blockDim.y + threadIdx.y;
+
+  int tid = (row * R) + col;
+
+  if (row >= P || col >= R)
+   return;
+  context_t bn_context(cgbn_report_monitor, report, tid);
+  env_cph_t bn_env(bn_context.env<env_cph_t>());
+  env_cph_t::cgbn_t n, max_int, nsquare, r, cipher, plain, neg_c, neg_scalar, tmp, tmp_res;
+  env_cph_t::cgbn_wide_t tmp_wide;
+
+  cgbn_set_ui32(bn_env, tmp_res, 1);
+  cgbn_load(bn_env, n, &gpu_pub_key[0].n);
+  cgbn_load(bn_env, max_int, &gpu_pub_key[0].max_int);
+  cgbn_load(bn_env, nsquare, &gpu_pub_key[0].nsquare);
+
+  for (int i = 0; i < Q; i++) {
+    cgbn_load(bn_env, cipher, ciphers_a + row * Q + i);
+    cgbn_load(bn_env, plain, plains_b + col * R + i); // remember b is flattened vertically.
+
+    cgbn_sub(bn_env, tmp, n, max_int);
+    if (cgbn_compare(bn_env, plain, tmp) >= 0) {
+      cgbn_modular_inverse(bn_env, neg_c, cipher, nsquare);
+      cgbn_sub(bn_env, neg_scalar, n, plain);
+      mont_modular_power(bn_env, r, neg_c, neg_scalar, nsquare);
+    } else {
+      mont_modular_power(bn_env, r, cipher, plain, nsquare);
+    }
+    cgbn_mul_wide(bn_env, tmp_wide, tmp_res, r);
+    cgbn_rem_wide(bn_env, tmp_res, tmp_wide, nsquare);
+  }
+  cgbn_store(bn_env, tmp_res, ciphers_res + row * R + col);
+}
+
+__global__ __noinline__ void fpn_mul(plain_t *encoding, plain_t *b, const uint32_t count, plain_t *res) {
+  uint32_t tid = blockIdx.x * blockDim.x + threadIdx.x;
+  uint32_t threadNum = blockDim.x * threadDim.x;
+  uint32_t start = tid * count / threadNum;
+  uint32_t end = start + count / threadNum > count ? count - 1 : start + count / threadNum;
+  if (start >= count)
+    return;
+  
+  for (int i = start; i <= end; i++)
+    res[i] = encoding[i] * b[i];
+}
   
 __global__ void raw_decrypt(PaillierPrivateKey *gpu_priv_key, PaillierPublicKey *gpu_pub_key,
 	   	cgbn_error_report_t *report, gpu_cph *plains, gpu_cph *ciphers, int count) {
@@ -556,6 +608,27 @@ void call_raw_decrypt(gpu_cph *cipher_gpu, const uint32_t count, plain_t *res) {
   cudaFree(plain_gpu);
 }
 
+
+void call_raw_matmul(gpu_cph *cipher_gpu, plain_t *plain_b, gpu_cph *cipher_res, const uint32_t P,\
+   const uint32_t Q, const uint32_t R) {
+  gpu_cph *plain_gpu;
+  cudaMallocAndSet((void **)&plain_gpu, sizeof(gpu_cph) * Q * R);
+  for (int i = 0; i < Q * R; i++)
+    cudaMemcpy(plain_gpu + i, plain_b + i, sizeof(plain_t), cudaMemcpyDeviceToDevice);
+  
+  dim3 threadPerBlock(4, 4, TPI); // TODO: remove hardcoded.
+  uint32_t x_dim = ceil((double)P/(double)threadPerBlock.x);
+  uint32_t y_dim = ceil((double)P/(double)threadPerBlock.y);
+
+  dim3 blockPerGrid(x_dim, y_dim);
+
+  raw_matmul_pmf<<<blockPerGrid, threadPerBlock>>>(gpu_pub_key, err_report, cipher_gpu, plain_gpu, \
+    cipher_res, P, Q, R);
+  
+  cudaFree(plain_gpu);
+}
+
+
 void cipher_align(PaillierEncryptedNumber *a, PaillierEncryptedNumber *b, const uint32_t count) {
   // align exponent before executing "encrypted add" operation
   // parameters:
@@ -606,9 +679,62 @@ void cipher_align(PaillierEncryptedNumber *a, PaillierEncryptedNumber *b, const 
  
 }
 
-void increase_exponent_to(PaillierEncryptedNumber *a, uint32_t *inc, PaillierEncryptedNumber *res) {
+void pen_increase_exponent_to(PaillierEncryptedNumber *a, const uint32_t exponent, \
+   const uint32_t count) {
+  plain_t *cof;
+  gpu_cph *cipher_gpu;
+  gpu_cph *cipher_res;
+  cudaMallocManaged(&cof, sizeof(uint32_t) * count);
+  cudaMallocAndSet(cipher_gpu, sizeof(gpu_cph) * count);
+  cudaMallocAndSet(cipher_res, sizeof(gpu_cph) * count);
+  uint32_t base = a[0].base;
+  for (int i = 0; i < count; i++) {
+    uint32_t diff = exponent - a[i].exponent >= 0 ? exponent - a[i].exponent, 0;
+    cof[i] = (uint32_t) pow(base, diff);
+  }
   
+  extractPen(cipher_gpu, a, count, HostToDevice);
+  
+  call_raw_mul(cipher_gpu, cof, cipher_res, count);
+  for (int i = 0; i < count; i++) {
+    cudaMemcpy((a + i)->cipher, cipher_res + i, sizeof(gpu_cph), cudaMemcpyDeviceToHost);
+    a[i].exponent = exponent;
+  }
+
+  cudaFree(cipher_gpu);
+  cudaFree(cipher_res);
+  cudaFree(cof);
 }
+
+void fpn_increase_exponent_to(FixedPointNumber *a, const uint32_t exponent, const uint32_t count) {
+  plain_t *fpn_gpu;
+  plain_t *cof;
+  plain_t *res;
+
+  cudaMallocAndSet((void **)&fpn_gpu, sizeof(plain_t) * count);
+  cudaMallocAndSet((void **)&res, sizeof(plain_t) * count);
+  cudaMallocManaged((void **)&cof, sizeof(plain_t) * count);
+
+  for (int i = 0; i < count; i++)
+    cudaMemcpy(fpn_gpu + i, &a[i].encoding, sizeof(plain_t), cudaMemcpyHostToDevice);
+  
+  uint32_t base = a[0].base;
+  for (int i = 0; i < count; i++)
+    cof[i] = (plain_t) pow(base, exponent - a[i].exponent);
+  uint32_t thread_size = 1024;
+  uint32_t block_size = ceil((double)count/(double)thread_size);
+  fpn_mul<<<block_size, thread_size>>>(fpn_gpu, cof, count, res);
+  for (int i = 0; i < count; i++) {
+    cudaMemcpy(&a[i].encoding, res + i, sizeof(plain_t), cudaMemcpyDeviceToHost);
+    a[i].exponent = exponent;
+  }
+
+  cudaFree(fpn_gpu);
+  cudaFree(cof);
+  cudaFree(res);
+
+}
+
 
 void cipher_add_cipher(PaillierEncryptedNumber *a, PaillierEncryptedNumber *b, \
   PaillierEncryptedNumber *r, const uint32_t count) {
@@ -639,6 +765,7 @@ void cipher_add_cipher(PaillierEncryptedNumber *a, PaillierEncryptedNumber *b, \
   }
   
 }
+
 
 void plain_mul_cipher(FixedPointNumber *b, PaillierEncryptedNumber *a, \
    PaillierEncryptedNumber *r, const int count) {
@@ -674,7 +801,8 @@ void plain_mul_cipher(FixedPointNumber *b, PaillierEncryptedNumber *a, \
   cudaFree(cipher_res);
 }
 
-void encrypt(FixedPointNumber *plain, gpu_cph *r, const int32_t count, const bool obf) {
+
+void encrypt(FixedPointNumber *plain, gpu_cph *r, const uint32_t count, const bool obf) {
   // encrypt function.
   // parameters:
   //   plain: in cpu
@@ -709,7 +837,8 @@ void encrypt(FixedPointNumber *plain, gpu_cph *r, const int32_t count, const boo
   if (obf) cudaFree(obfs);
 }
 
-void decrypt(PaillierEncryptedNumber *cipher, plain_t *r, const int32_t count) {
+
+void decrypt(PaillierEncryptedNumber *cipher, plain_t *r, const uint32_t count) {
   // perform decrypt
   // parameters:
   //   cipher: in cpu
@@ -733,7 +862,7 @@ void decrypt(PaillierEncryptedNumber *cipher, plain_t *r, const int32_t count) {
 }
 
 
-void sum(PaillierEncryptedNumber *cipher, PaillierEncryptedNumber *res, const int32_t count) {
+void sum(PaillierEncryptedNumber *cipher, PaillierEncryptedNumber *res, const uint32_t count) {
   // sum
   // parameters:
   //  cipher: in cpu
@@ -785,6 +914,55 @@ void sum(PaillierEncryptedNumber *cipher, PaillierEncryptedNumber *res, const in
   cudaFree(ciphers_buf[0]);
   cudaFree(ciphers_buf[1]);
   cudaFree(inc);
+}
+
+void matmul(PaillierEncryptedNumber *cipher_a, FixedPointNumber *plain_b, PaillierEncryptedNumber *r,\
+   const uint32_t P, const uint32_t Q, const uint32_t R) {
+  // perform matrix multiplication.
+  // parameters:
+  //  cipher_a: ciphers in cpu
+  //  plain_b: plains in cpu
+  //  r: result in cpu
+  //  cipher_a has shape P * Q
+  //  plain_b has shape Q * R, b is vertically flattened.
+  // steps:
+  //  1. copy cipher_a to GPU, plain_b to GPU
+  //  2. align ciphers
+  //  3. call_raw_matmul
+  //  4. copy back to CPU with corresponding exponent
+  
+  gpu_cph *cipher_gpu;
+  plain_t *plain_gpu;
+  gpu_cph *cipher_res;
+  
+  // find the largest exponent
+  uint32_t max_exponent = 0;
+  for (int i = 0; i < P * Q; i++)
+    max_exponent = max_exponent < cipher_a[i].exponent ? cipher_a[i].exponent : max_exponent;
+  
+  for (int i = 0; i < Q * R; i++)
+    max_exponent = max_exponent < plain_b[i].exponent ? plain_b[i].exponent : max_exponent;
+  
+  // increase exponent
+  pen_increase_exponent_to(cipher_a, max_exponent, P * Q);
+  fpn_increase_exponent_to(plain_b, max_exponent, Q * R);
+
+  cudaMallocAndSet(cipher_gpu, sizeof(gpu_cph) * P * Q);
+  cudaMallocAndSet(plain_gpu, sizeof(gpu_cph) * R * S);
+  cudaMallocAndSet(cipher_res, sizeof(gpu_cph) * P * R);
+
+  extractPen(cipher_gpu, cipher_a, P * Q);
+  for (int i = 0; i < Q * R; i++)
+    cudaMemcpy(plain_gpu + i, &plain_b[i].encoding, sizeof(plain_t), cudaMemcpyHostToDevice);
+  
+  call_raw_matmul(cipher_gpu, plain_gpu, cipher_res, P, Q, R);
+
+  for (int i = 0; i < P * R; i++) {
+    cudaMemcpy(r[i].cipher, cipher_res + i, sizeof(gpu_cph), cudaMemcpyDeviceToHost);
+    r[i].exponent = 2 * max_exponent;
+    r[i].base = cipher_a[0].base;
+  }
+
 }
 
 }// extern "C"
