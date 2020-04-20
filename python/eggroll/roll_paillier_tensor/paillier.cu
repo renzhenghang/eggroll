@@ -934,6 +934,8 @@ void matmul(PaillierEncryptedNumber *cipher_a, FixedPointNumber *plain_b, Pailli
   gpu_cph *cipher_gpu = NULL;
   plain_t *plain_gpu = NULL;
   gpu_cph *cipher_res = NULL;
+
+  printf("P: %d, Q: %d, R: %d\n", P, Q, R);
   
   // find the largest exponent
   uint32_t max_exponent = 0;
