@@ -162,7 +162,7 @@ def matmul(x, y, _pub):
     # for i in range(x.shape[-1]):
     #     for j in range(y.shape[-2]):
     #         res[...,i,j] = vdot(x[...,i], y[...,j], _pub)
-    res = paillier_gpu.matmul_impl(x, y, x.shape, y.shape)
+    res = paillier_gpu.matmul_impl(x.flatten(), y.flatten(order='F'), x.shape, y.shape)
 
     return res
 

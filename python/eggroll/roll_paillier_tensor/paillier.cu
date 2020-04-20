@@ -8,6 +8,7 @@
 #include <curand.h>
 #include <curand_kernel.h>
 #include <math.h>
+#include <cstdlib>
 
 // #include <chrono>
 #include <cassert>
@@ -643,7 +644,7 @@ void cipher_align(PaillierEncryptedNumber *a, PaillierEncryptedNumber *b, const 
   // 1
   for (int i = 0; i < count; i++) {
     map[i] = a[i].exponent < b[i].exponent ? 0 : 1;
-    cof[i] = (plain_t) pow(a[i].base, abs(a[i].exponent- b[i].exponent));
+    cof[i] = (plain_t) pow(a[i].base, abs((int)a[i].exponent- (int)b[i].exponent));
     if (a[i].exponent < b[i].exponent)
       a[i].exponent = b[i].exponent;
     else b[i].exponent = a[i].exponent;
