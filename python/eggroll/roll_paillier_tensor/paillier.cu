@@ -681,18 +681,25 @@ void cipher_align(PaillierEncryptedNumber *a, PaillierEncryptedNumber *b, const 
 
 void pen_increase_exponent_to(PaillierEncryptedNumber *a, const uint32_t exponent, \
    const uint32_t count) {
+  printf("enter pen\n");
+  printf("count: %d\n", count);
   plain_t *cof;
   gpu_cph *cipher_gpu = NULL;
   gpu_cph *cipher_res = NULL;
-  cudaMallocManaged(&cof, sizeof(uint32_t) * count);
-  cudaMallocAndSet((void **)cipher_gpu, sizeof(gpu_cph) * count);
-  cudaMallocAndSet((void **)cipher_res, sizeof(gpu_cph) * count);
+  printf("malloc managed\n");
+  cudaMallocManaged(&cof, sizeof(plain_t) * count);
+  printf("malloc cipher_gpu\n");
+  cudaMallocAndSet((void **)&cipher_gpu, sizeof(gpu_cph) * count);
+  printf("malloc cipher_res\n");
+  cudaMallocAndSet((void **)&cipher_res, sizeof(gpu_cph) * count);
   uint32_t base = a[0].base;
+  printf("calculating cof\n");
   for (int i = 0; i < count; i++) {
     uint32_t diff = exponent >= a[i].exponent ? exponent - a[i].exponent : 0;
     cof[i] = (uint32_t) pow(base, diff);
   }
   
+  printf("extract Pen\n");
   extractPen(cipher_gpu, a, count, HostToDevice);
 
   printf("finish extract pen\n");
@@ -957,9 +964,9 @@ void matmul(PaillierEncryptedNumber *cipher_a, FixedPointNumber *plain_b, Pailli
   fpn_increase_exponent_to(plain_b, max_exponent, Q * R);
   printf("increase b finished\n");
 
-  cudaMallocAndSet((void **)cipher_gpu, sizeof(gpu_cph) * P * Q);
-  cudaMallocAndSet((void **)plain_gpu, sizeof(gpu_cph) * Q * R);
-  cudaMallocAndSet((void **)cipher_res, sizeof(gpu_cph) * P * R);
+  cudaMallocAndSet((void **)&cipher_gpu, sizeof(gpu_cph) * P * Q);
+  cudaMallocAndSet((void **)&plain_gpu, sizeof(gpu_cph) * Q * R);
+  cudaMallocAndSet((void **)&cipher_res, sizeof(gpu_cph) * P * R);
 
   extractPen(cipher_gpu, cipher_a, P * Q, HostToDevice);
   for (int i = 0; i < Q * R; i++)
