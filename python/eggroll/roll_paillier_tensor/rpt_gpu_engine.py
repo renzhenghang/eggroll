@@ -184,10 +184,14 @@ def hstack(x, y, pub):
 
 
 def decryptdecode(data, pub, priv):
-    d_flatten = data.flatten()
-    d_shape = data.shape
+    if isinstance(data, np.ndarray):
+        d_flatten = list(data.flatten())
+        d_shape = data.shape
+    else:
+        d_flatten = data
+        d_shape = (len(data),)
 
-    res = paillier_gpu.decrypt(data)
+    res = paillier_gpu.decrypt(d_flatten)
     res_decode = [r.decode() for r in res]
 
     return np.reshape(res_decode, d_shape)

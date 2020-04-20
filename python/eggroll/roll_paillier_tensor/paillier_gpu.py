@@ -277,7 +277,7 @@ def matmul_impl(a, b, a_shape, b_shape):
     a_pen_array = (c_PaillierEncryptedNumber * len(a))(*a_pen_list)
     b_fpn_array = (c_FixedPointNumber * len(b))(*[c_FixedPointNumber(v) for v in b])
 
-    res_pen = (c_PaillierEncryptedNumber * p * r)()
+    res_pen = (c_PaillierEncryptedNumber * (p * r))()
 
     _cuda_lib.matmul(a_pen_array, b_fpn_array, res_pen, p, q, r)
 

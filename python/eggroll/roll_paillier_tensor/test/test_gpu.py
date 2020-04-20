@@ -14,7 +14,7 @@ def generate_fpn(length):
 
 def dump_res(fpn_list):
     print('\nencoding\t\texponent')
-    [print(hex(v.encoding), hex(v.exponent), sep='\t\t') for v in fpn_list]
+    [print((v.encoding), (v.exponent), sep='\t\t') for v in fpn_list]
 
 class TestGpuCode(unittest.TestCase):
 
@@ -111,7 +111,13 @@ class TestGpuCode(unittest.TestCase):
         res = GPUEngine.matmul(pen_np1, fpn_np2, self._pub_key)
         dec_res = GPUEngine.decryptdecode(res, self._pub_key, self._priv_key)
 
-        
+        print("fpn_list1")
+        dump_res(fpn_list2)
+        dump_res(fpn_list1)
+        print("np1", decode_np1)
+        print("np2", decode_np2)
+        print("dec res", dec_res)
+        print(decode_np1.dot(decode_np2))
 
         # pen_np2 = CPUEngine.encrypt_and_obfuscate(decode_np1, self._pub_key)
 

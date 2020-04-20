@@ -396,8 +396,8 @@ __global__ void raw_mul(PaillierPublicKey *gpu_pub_key, cgbn_error_report_t *rep
 __global__ void raw_matmul(PaillierPublicKey *pub_key, cgbn_error_report_t *report, gpu_cph *ciphers_a, \
 gpu_cph *plains_b, gpu_cph *ciphers_res, const uint32_t P, const uint32_t Q, const uint32_t R) {
   // size: P * Q, Q * R
-  int col = blockIdx.x * blockDim.x + threadIdx.x;
-  int row = blockIdx.y * blockDim.y + threadIdx.y;
+  int col = blockIdx.x * blockDim.x + threadIdx.y;
+  int row = blockIdx.y * blockDim.y + threadIdx.z;
 
   int tid = (row * R) + col;
 
@@ -616,11 +616,13 @@ void call_raw_matmul(gpu_cph *cipher_gpu, plain_t *plain_b, gpu_cph *cipher_res,
   for (int i = 0; i < Q * R; i++)
     cudaMemcpy(plain_gpu + i, plain_b + i, sizeof(plain_t), cudaMemcpyDeviceToDevice);
   
-  dim3 threadPerBlock(4, 4, TPI); // TODO: remove hardcoded.
+  dim3 threadPerBlock(TPI, 4, 4); // TODO: remove hardcoded.
   uint32_t x_dim = ceil((double)P/(double)threadPerBlock.x);
   uint32_t y_dim = ceil((double)P/(double)threadPerBlock.y);
 
   dim3 blockPerGrid(x_dim, y_dim);
+
+  printf("x_dim: %d, y_dim: %d\n", x_dim, y_dim);
 
   raw_matmul<<<blockPerGrid, threadPerBlock>>>(gpu_pub_key, err_report, cipher_gpu, plain_gpu, \
     cipher_res, P, Q, R);
@@ -948,6 +950,8 @@ void matmul(PaillierEncryptedNumber *cipher_a, FixedPointNumber *plain_b, Pailli
   gpu_cph *cipher_res = NULL;
 
   printf("P: %d, Q: %d, R: %d\n", P, Q, R);
+  for (int i = 0; i < Q * R; i++)
+	printf("%lu, %lu\n", plain_b[i].encoding, plain_b[i].exponent);
   
   // find the largest exponent
   uint32_t max_exponent = 0;
@@ -963,9 +967,11 @@ void matmul(PaillierEncryptedNumber *cipher_a, FixedPointNumber *plain_b, Pailli
   printf("increase a finished\n");
   fpn_increase_exponent_to(plain_b, max_exponent, Q * R);
   printf("increase b finished\n");
+  for (int i = 0; i < Q * R; i++)
+	printf("%lu, %lu\n", plain_b[i].encoding, plain_b[i].exponent);
 
   cudaMallocAndSet((void **)&cipher_gpu, sizeof(gpu_cph) * P * Q);
-  cudaMallocAndSet((void **)&plain_gpu, sizeof(gpu_cph) * Q * R);
+  cudaMallocAndSet((void **)&plain_gpu, sizeof(plain_t) * Q * R);
   cudaMallocAndSet((void **)&cipher_res, sizeof(gpu_cph) * P * R);
 
   extractPen(cipher_gpu, cipher_a, P * Q, HostToDevice);
