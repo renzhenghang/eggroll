@@ -694,12 +694,17 @@ void pen_increase_exponent_to(PaillierEncryptedNumber *a, const uint32_t exponen
   }
   
   extractPen(cipher_gpu, a, count, HostToDevice);
+
+  printf("finish extract pen\n");
   
   call_raw_mul(cipher_gpu, cof, cipher_res, count);
+  printf("finish call raw mul\n");
   for (int i = 0; i < count; i++) {
     cudaMemcpy((a + i)->cipher, cipher_res + i, sizeof(gpu_cph), cudaMemcpyDeviceToHost);
     a[i].exponent = exponent;
   }
+
+  printf("finish copy back\n");
 
   cudaFree(cipher_gpu);
   cudaFree(cipher_res);
