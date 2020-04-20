@@ -3,7 +3,7 @@ import unittest
 from eggroll.roll_paillier_tensor import rpt_py_engine as CPUEngine
 from eggroll.roll_paillier_tensor import rpt_gpu_engine as GPUEngine
 from eggroll.roll_paillier_tensor.roll_paillier_tensor import PaillierTensor, NumpyTensor
-from eggroll.roll_paillier_tensor.paillier_gpu import init_gpu_keys, encrypt, decrypt, add_impl, mul_impl, sum_impl
+from eggroll.roll_paillier_tensor.paillier_gpu import init_gpu_keys, encrypt, decrypt, add_impl, mul_impl, sum_impl, matmul_impl
 from federatedml.secureprotol.fate_paillier import PaillierKeypair, PaillierEncryptedNumber
 from federatedml.secureprotol.fixedpoint import FixedPointNumber
 import random
@@ -33,8 +33,8 @@ class TestGpuCode(unittest.TestCase):
         fpn_list = generate_fpn(10)
         pen_list = encrypt(fpn_list, False)
         fpn_dec_list = decrypt(pen_list)
-        print('dec res')
-        dump_res(fpn_dec_list)
+        # print('dec res')
+        # dump_res(fpn_dec_list)
         # for i in range(10):
         #     print(fpn_list[i].encoding, fpn_dec_list[i].encoding)
 
@@ -57,9 +57,6 @@ class TestGpuCode(unittest.TestCase):
         std_res = [pen_list2[i] * fpn_list1[i].decode() for i in range(10)]
         
         std_dec = decrypt(std_res)
-
-        dump_res(dec_res_gpu)
-        dump_res(std_dec)
 
 
     def testAdd(self):
@@ -99,7 +96,35 @@ class TestGpuCode(unittest.TestCase):
         # pass
 
     def testMatMul(self):
-        pass
+        fpn_list1 = generate_fpn(4)
+        decode_list1 = [t.decode() for t in fpn_list1]
+        fpn_list2 = generate_fpn(4)
+        decode_list2 = [t.decode() for t in fpn_list2]
+    
+        fpn_np1 = np.reshape(fpn_list1, (2,2))
+        decode_np1 = np.reshape(decode_list1, (2,2))
+        fpn_np2 = np.reshape(fpn_list2, (2,2))
+        decode_np2 = np.reshape(decode_list2, (2,2))
+
+        pen_np1 = GPUEngine.encrypt_and_obfuscate(fpn_np1, self._pub_key)
+
+        res = GPUEngine.matmul(pen_np1, fpn_np2, self._pub_key)
+        dec_res = GPUEngine.decryptdecode(res, self._pub_key, self._priv_key)
+
+        
+
+        # pen_np2 = CPUEngine.encrypt_and_obfuscate(decode_np1, self._pub_key)
+
+        # print(pen_np1)
+        # print(pen_np1.shape)
+        # for i in range(2):
+            # for j in range(2):
+                # print(pen_np1[i][j].ciphertext(False), pen_np1[i][j].exponent)
+                # print(pen_np2[i][j].ciphertext(False), pen_np2[i][j].exponent)
+                # print("")
+
+        # dec_np1 = CPUEngine.decryptdecode(pen_np1, self._pub_key, self._priv_key)
+        # dec_np2 = CPUEngine.decryptdecode(pen_np2, self._pub_key, self._priv_key)
 
     def testSum(self):
         fpn_list = generate_fpn(3)
@@ -108,7 +133,7 @@ class TestGpuCode(unittest.TestCase):
 
         pen_list = encrypt(fpn_list)
         std_sum = sum(pen_list)
-        print(len(pen_list))
+        # print(len(pen_list))
         res = sum_impl(pen_list)
         dec = decrypt([res])
         std_dec = decrypt([std_sum])
@@ -120,6 +145,7 @@ class TestGpuCode(unittest.TestCase):
         print(hex(fpn_list[0].encoding), fpn_list[0].exponent)
         print(hex(fpn_list[1].encoding), fpn_list[1].exponent)
         print(hex(fpn_list[2].encoding), fpn_list[2].exponent)
+        # pass
 
 
 if __name__ == '__main__':

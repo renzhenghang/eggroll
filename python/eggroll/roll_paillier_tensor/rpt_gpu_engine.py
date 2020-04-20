@@ -4,6 +4,7 @@ from eggroll.roll_paillier_tensor import paillier_gpu
 from federatedml.secureprotol.fate_paillier import PaillierKeypair, PaillierPublicKey, PaillierEncryptedNumber
 from federatedml.secureprotol.fixedpoint import FixedPointNumber
 from federatedml.secureprotol import gmpy_math
+import asyncio
 import random
 import numpy as np
 
@@ -144,14 +145,26 @@ def matmul(x, y, _pub):
     x: numpy ndarray of PaillierEncryptedNumber
     y: numpy ndarray of FixedPointNumber
     """
-    if x.shape[1] != y.shape[0]:
+    # if x.shape[1] != y.shape[0]:
+    #     pass # TODO: REPORT ERROR
+    # x_flatten = x.flatten()
+    # y_flatten = y.flatten()
+
+    # r_list = paillier_gpu.matmul_impl(x_flatten, y_flatten, x.shape, y.shape)
+
+    # return np.reshape(r_list, (x.shape[0], y.shape[1]))
+    if x.shape[-1] != y.shape[-2]:
         pass # TODO: REPORT ERROR
-    x_flatten = x.flatten()
-    y_flatten = y.flatten()
+    # y_s = y.swapaxes(-1, -2)
+    # res_shape = x.shape[:-1] + y.shape[:-1]
+    # res = np.zeros(res_shape)
 
-    r_list = paillier_gpu.matmul_impl(x_flatten, y_flatten, x.shape, y.shape)
+    # for i in range(x.shape[-1]):
+    #     for j in range(y.shape[-2]):
+    #         res[...,i,j] = vdot(x[...,i], y[...,j], _pub)
+    res = paillier_gpu.matmul_impl(x, y, x.shape, y.shape)
 
-    return r_list.reshape((x.shape[0], y.shape[1]))
+    return res
 
 
 def transe(data):
@@ -171,19 +184,21 @@ def hstack(x, y, pub):
 
 
 def decryptdecode(data, pub, priv):
-    return np.vectorize(priv.decrypt)(data)
+    d_flatten = data.flatten()
+    d_shape = data.shape
+
+    res = paillier_gpu.decrypt(data)
+    res_decode = [r.decode() for r in res]
+
+    return np.reshape(res_decode, d_shape)
 
 
-def encrypt_and_obfuscate(data, pub, obfs=None):
-    if obfs is None:
-        return np.vectorize(pub.encrypt)(data)
+def encrypt_and_obfuscate(data, pub, obfs=False):
+    d_flatten = data.flatten()
+    d_shape = data.shape
+    res = paillier_gpu.encrypt(d_flatten, obfs)
 
-    def func(value, obf):
-        encoding = pub.encode(value)
-        ciphertext = pub.raw_encrypt(encoding.encoding)
-        ciphertext = pub.apply_obfuscator(ciphertext, obf=obf)
-        return PaillierEncryptedNumber(pub, ciphertext, encoding.exponent)
-    return np.vectorize(func)(data, obfs)
+    return np.reshape(res, d_shape)
 
 def keygen():
     pub, priv = PaillierKeypair().generate_keypair()
@@ -191,3 +206,7 @@ def keygen():
 
     return pub, priv
 
+
+async def async_encrypt(value):
+
+    pass
