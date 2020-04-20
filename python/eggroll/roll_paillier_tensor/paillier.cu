@@ -945,9 +945,12 @@ void matmul(PaillierEncryptedNumber *cipher_a, FixedPointNumber *plain_b, Pailli
   for (int i = 0; i < Q * R; i++)
     max_exponent = max_exponent < plain_b[i].exponent ? plain_b[i].exponent : max_exponent;
   
+  printf("max exponent: %d\n", max_exponent);
   // increase exponent
   pen_increase_exponent_to(cipher_a, max_exponent, P * Q);
+  printf("increase a finished\n");
   fpn_increase_exponent_to(plain_b, max_exponent, Q * R);
+  printf("increase b finished\n");
 
   cudaMallocAndSet((void **)cipher_gpu, sizeof(gpu_cph) * P * Q);
   cudaMallocAndSet((void **)plain_gpu, sizeof(gpu_cph) * Q * R);
