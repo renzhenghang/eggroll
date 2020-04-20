@@ -588,24 +588,15 @@ void call_raw_mul(gpu_cph *cipher_a, plain_t *plain_b, gpu_cph *cipher_res, cons
   cudaFree(plain_b_ext);
 }
 
-void call_raw_decrypt(gpu_cph *cipher_gpu, const uint32_t count, plain_t *res) {
-  gpu_cph *plain_gpu;
-  
-  cudaMalloc((void **)&plain_gpu, sizeof(gpu_cph) * count);
-  cudaMemset(plain_gpu, 0, sizeof(gpu_cph) * count);
+void call_raw_decrypt(gpu_cph *cipher_gpu, const uint32_t count, gpu_cph *res) {
   
   int TPB = 128;
   int IPB = TPB/TPI;
   int block_size = (count + IPB - 1) / IPB;
   int thread_size = TPB;
 
-  raw_decrypt<<<block_size, thread_size>>>(gpu_priv_key, gpu_pub_key, err_report, plain_gpu, \
+  raw_decrypt<<<block_size, thread_size>>>(gpu_priv_key, gpu_pub_key, err_report, res, \
   cipher_gpu, count);
-
-  for (int i = 0; i < count; i++)
-    cudaMemcpy(res + i, plain_gpu + i, sizeof(plain_t), cudaMemcpyDeviceToHost);
-
-  cudaFree(plain_gpu);
 }
 
 
@@ -852,7 +843,7 @@ void encrypt(FixedPointNumber *plain, gpu_cph *r, const uint32_t count, const bo
 }
 
 
-void decrypt(PaillierEncryptedNumber *cipher, plain_t *r, const uint32_t count) {
+void decrypt(PaillierEncryptedNumber *cipher, gpu_cph *r, const uint32_t count) {
   // perform decrypt
   // parameters:
   //   cipher: in cpu
@@ -862,17 +853,21 @@ void decrypt(PaillierEncryptedNumber *cipher, plain_t *r, const uint32_t count) 
   //   2. perform raw decrypt
   //   3. copy back to cpu
   gpu_cph *raw_cipher_gpu;
+  gpu_cph *res_gpu;
   cudaMalloc(&raw_cipher_gpu, sizeof(gpu_cph) * count);
-  memset(r, 0, sizeof(plain_t) * count);
+  cudaMalloc(&res_gpu, sizeof(gpu_cph) * count);
+  // memset(r, 0, sizeof(plain_t) * count);
 
   // dumpMem(cipher[0].cipher, sizeof(gpu_cph));
 
   for (int i = 0; i < count; i++)
     cudaMemcpy(raw_cipher_gpu + i, cipher[i].cipher, sizeof(gpu_cph), cudaMemcpyHostToDevice);
   
-  call_raw_decrypt(raw_cipher_gpu, count, r);
+  call_raw_decrypt(raw_cipher_gpu, count, res_gpu);
+  cudaMemcpy(r, res_gpu, sizeof(gpu_cph) * count, cudaMemcpyDeviceToHost);
 
   cudaFree(raw_cipher_gpu);
+  cudaFree(res_gpu);
 }
 
 

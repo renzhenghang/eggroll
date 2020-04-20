@@ -192,10 +192,10 @@ def decrypt(values):
         c_PaillierEncryptedNumber(v) for v in values
     ]
     pen_array = (c_PaillierEncryptedNumber * len(values))(*pen_list)
-    plain_buffer = create_string_buffer(8 * len(values))
+    plain_buffer = create_string_buffer(256 * len(values))
     _cuda_lib.decrypt(pen_array, plain_buffer, len(values))
 
-    plains = get_int(plain_buffer.raw, len(values), 8)
+    plains = get_int(plain_buffer.raw, len(values), 256)
 
     fpn_list = [
         FixedPointNumber(plains[i], values[i].exponent) for i in range(len(values))
