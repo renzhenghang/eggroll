@@ -7,6 +7,8 @@ from eggroll.roll_paillier_tensor.paillier_gpu import init_gpu_keys, encrypt, de
 from federatedml.secureprotol.fate_paillier import PaillierKeypair, PaillierEncryptedNumber
 from federatedml.secureprotol.fixedpoint import FixedPointNumber
 import random
+import functools
+import time
 
 # random.seed()
 def generate_fpn(length):
@@ -16,17 +18,31 @@ def dump_res(fpn_list):
     print('\nencoding\t\texponent')
     [print((v.encoding), (v.exponent), sep='\t\t') for v in fpn_list]
 
+def bench_mark(ins_num):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            start_time = time.time()
+            res = func(*args, **kwargs)
+            end_time = time.time()
+            elapsed = end_time - start_time
+            throughput = ins_num/elapsed
+            print('benchmark:', func.__name__)
+            print('{}s cost, {} instance per second'.format(elapsed, throughput))
+            return res
+        return wrapper
+    return decorator
+
 class TestGpuCode(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
         cls._pub_key, cls._priv_key = PaillierKeypair.generate_keypair()
-        # print(cls._pub_key.n)
-        init_gpu_keys(cls._pub_key, cls._priv_key)
+        bench_mark(1)(init_gpu_keys)(cls._pub_key, cls._priv_key)
 
     def testEncrypt(self):
-        fpn_list = generate_fpn(1000)
-        pen_list = encrypt(fpn_list, False)
+        fpn_list = generate_fpn(10000)
+        pen_list = bench_mark(10000)(encrypt)(fpn_list, False)
         pen_list_2 = [self._pub_key.raw_encrypt(v.encoding, random_value=1) for v in fpn_list]
 
     def testDecrypt(self):
