@@ -204,6 +204,12 @@ def encrypt_and_obfuscate(data, pub, obfs=False):
 
     return np.reshape(res, d_shape)
 
+async def encrypt_obf_async(data, pub, obfs=False):
+    d_flatten = data.flatten()
+    d_shape = data.shape
+    res = await asyncio.gather(*[paillier_gpu.encrypt_async(v) for v in d_flatten])
+    return np.reshape(res, d_shape)
+
 def keygen():
     pub, priv = PaillierKeypair().generate_keypair()
     paillier_gpu.init_gpu_keys(pub, priv)

@@ -842,6 +842,46 @@ void encrypt(FixedPointNumber *plain, gpu_cph *r, const uint32_t count, const bo
   if (obf) cudaFree(obfs);
 }
 
+void encrypt_async(FixedPointNumber *plain, gpu_cph *r, const uint32_t count, const bool obf) {
+  gpu_cph *raw_plain_gpu;
+  gpu_cph *raw_cipher_gpu;
+  unsigned int *obfs = NULL;
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
+  cudaMalloc(&raw_plain_gpu, sizeof(gpu_cph) * count);
+  cudaMalloc(&raw_cipher_gpu, sizeof(gpu_cph) * count);
+  memset(r, 0, sizeof(gpu_cph) * count);
+  cudaMemset(raw_plain_gpu, 0, sizeof(gpu_cph) * count);
+  
+  for (int i = 0; i < count; i++) {
+    cudaMemcpyAsync(raw_plain_gpu + i, &plain[i].encoding, sizeof(plain_t), cudaMemcpyHostToDevice, stream);
+  }
+  
+  if (obf) {
+    cudaMallocManaged(&obfs, sizeof(unsigned int) * count);
+    for (int i = 0; i < count; i++) obfs[i] = rand();
+  }
+   
+  // call_raw_encrypt_obfs(raw_plain_gpu, count, raw_cipher_gpu, obfs);
+  int TPB = 128;
+  int IPB = TPB/TPI;
+  int block_size = (count + IPB - 1)/IPB;
+  int thread_size = TPB;
+
+  if (obf)
+    raw_encrypt_with_obfs<<<block_size, thread_size, 0, stream>>>(gpu_pub_key, err_report, \
+      raw_plain_gpu, raw_cipher_gpu, count, obfs);
+  else
+    raw_encrypt<<<block_size, thread_size, 0, stream>>>(gpu_pub_key, err_report, raw_plain_gpu,\
+      raw_cipher_gpu, count);
+
+  cudaMemcpyAsync(r, raw_cipher_gpu, sizeof(gpu_cph) * count, cudaMemcpyDeviceToHost, stream);
+
+  cudaFree(raw_plain_gpu);
+  cudaFree(raw_cipher_gpu);
+  if (obf) cudaFree(obfs);
+}
+
 
 void decrypt(PaillierEncryptedNumber *cipher, gpu_cph *r, const uint32_t count) {
   // perform decrypt
