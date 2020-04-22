@@ -880,6 +880,7 @@ void encrypt_async(FixedPointNumber *plain, gpu_cph *r, const uint32_t count, co
   cudaFree(raw_plain_gpu);
   cudaFree(raw_cipher_gpu);
   if (obf) cudaFree(obfs);
+  cudaStreamDestroy(stream);
 }
 
 
