@@ -3,12 +3,13 @@ import unittest
 from eggroll.roll_paillier_tensor import rpt_py_engine as CPUEngine
 from eggroll.roll_paillier_tensor import rpt_gpu_engine as GPUEngine
 from eggroll.roll_paillier_tensor.roll_paillier_tensor import PaillierTensor, NumpyTensor
-from eggroll.roll_paillier_tensor.paillier_gpu import init_gpu_keys, encrypt, decrypt, add_impl, mul_impl, sum_impl, matmul_impl
+from eggroll.roll_paillier_tensor.paillier_gpu import init_gpu_keys, encrypt, decrypt, add_impl, mul_impl, sum_impl, matmul_impl, encrypt_async
 from federatedml.secureprotol.fate_paillier import PaillierKeypair, PaillierEncryptedNumber
 from federatedml.secureprotol.fixedpoint import FixedPointNumber
 import random
 import functools
 import time
+import asyncio
 
 # random.seed()
 def generate_fpn(length):
@@ -33,6 +34,14 @@ def bench_mark(ins_num):
         return wrapper
     return decorator
 
+async def enc_async_impl(fpn_list):
+    job_list = [encrypt_async(v) for v in fpn_list]
+    res = await asyncio.gather(*job_list)
+    return res
+
+def enc_async_test(fpn_list):
+    return asyncio.run(enc_async_impl(fpn_list))
+
 class TestGpuCode(unittest.TestCase):
 
     @classmethod
@@ -44,6 +53,10 @@ class TestGpuCode(unittest.TestCase):
         fpn_list = generate_fpn(10000)
         pen_list = bench_mark(10000)(encrypt)(fpn_list, False)
         pen_list_2 = [self._pub_key.raw_encrypt(v.encoding, random_value=1) for v in fpn_list]
+
+    def testEncryptAsync(self):
+        fpn_list = generate_fpn(10000)
+        pen_list = bench_mark(10000)(enc_async_test)(fpn_list)
 
     def testDecrypt(self):
         fpn_list = generate_fpn(10)
