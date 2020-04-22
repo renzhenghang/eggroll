@@ -218,7 +218,7 @@ async def encrypt_async(value, obf=True):
 
     pen_buffer = create_string_buffer(CPH_BYTES * 1)
 
-    _cuda_lib.encrypt(fpn_array, pen_buffer, c_int32(1), c_bool(obf))
+    _cuda_lib.encrypt_async(fpn_array, pen_buffer, c_int32(1), c_bool(obf))
 
     cipher_list = get_int(pen_buffer.raw, 1, CPH_BYTES)
     pen_list = [
