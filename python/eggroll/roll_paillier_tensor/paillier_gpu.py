@@ -204,7 +204,7 @@ def decrypt(values):
     return fpn_list
 
 @check_key
-async def encrypt_async(value, obf=True):
+async def encrypt_async(value, obf=True, i=0):
     # values: list of Fixed Point Number
     global _cuda_lib
     # [print(v.encoding) for v in values]
@@ -218,13 +218,13 @@ async def encrypt_async(value, obf=True):
 
     pen_buffer = create_string_buffer(CPH_BYTES * 1)
 
-    print('start kernel')
+    print('start kernel', i)
     _cuda_lib.encrypt_async(fpn_array, pen_buffer, c_int32(1), c_bool(obf))
-    print('finish kernel')
+    print('finish kernel', i)
 
     cipher_list = get_int(pen_buffer.raw, 1, CPH_BYTES)
     pen = PaillierEncryptedNumber(_pub_key, cipher_list[0], value.exponent)
-    
+
     return pen
 
 

@@ -35,7 +35,7 @@ def bench_mark(ins_num):
     return decorator
 
 async def enc_async_impl(fpn_list):
-    job_list = [encrypt_async(v) for v in fpn_list]
+    job_list = [encrypt_async(fpn_list[i], i=i) for i in range(len(fpn_list))]
     res = await asyncio.gather(*job_list)
     return res
 
