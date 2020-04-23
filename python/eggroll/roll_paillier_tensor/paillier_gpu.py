@@ -223,7 +223,8 @@ async def encrypt_async(value, obf=True):
     print('finish kernel')
 
     cipher_list = get_int(pen_buffer.raw, 1, CPH_BYTES)
-    pen = PaillierEncryptedNumber(_pub_key, cipher_list[0], value.exponent) \
+    pen = PaillierEncryptedNumber(_pub_key, cipher_list[0], value.exponent)
+    
     return pen
 
 
