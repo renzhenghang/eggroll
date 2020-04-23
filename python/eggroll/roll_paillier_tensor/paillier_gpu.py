@@ -218,15 +218,13 @@ async def encrypt_async(value, obf=True):
 
     pen_buffer = create_string_buffer(CPH_BYTES * 1)
 
+    print('start kernel')
     _cuda_lib.encrypt_async(fpn_array, pen_buffer, c_int32(1), c_bool(obf))
+    print('finish kernel')
 
     cipher_list = get_int(pen_buffer.raw, 1, CPH_BYTES)
-    pen_list = [
-        PaillierEncryptedNumber(_pub_key, cipher_list[i], value.exponent) \
-            for i in range(1)
-    ]
-
-    return pen_list
+    pen = PaillierEncryptedNumber(_pub_key, cipher_list[0], value.exponent) \
+    return pen
 
 
 @check_key
