@@ -613,8 +613,6 @@ void call_raw_matmul(gpu_cph *cipher_gpu, plain_t *plain_b, gpu_cph *cipher_res,
 
   dim3 blockPerGrid(x_dim, y_dim);
 
-  printf("x_dim: %d, y_dim: %d\n", x_dim, y_dim);
-
   raw_matmul<<<blockPerGrid, threadPerBlock>>>(gpu_pub_key, err_report, cipher_gpu, plain_gpu, \
     cipher_res, P, Q, R);
   
@@ -937,7 +935,6 @@ void sum(PaillierEncryptedNumber *cipher, PaillierEncryptedNumber *res, const ui
     max_exponent = max_exponent < cipher[i].exponent ? cipher[i].exponent : max_exponent;
   for (int i = 0; i < count; i++) {
     inc[i] = (int32_t) pow(cipher[i].base, max_exponent - cipher[i].exponent);
-    printf("inc[%d]: %d\n", i, inc[i]);
   }
 
   extractPen(ciphers_buf[0], cipher, count, HostToDevice);
@@ -984,10 +981,6 @@ void matmul(PaillierEncryptedNumber *cipher_a, FixedPointNumber *plain_b, Pailli
   gpu_cph *cipher_gpu = NULL;
   plain_t *plain_gpu = NULL;
   gpu_cph *cipher_res = NULL;
-
-  printf("P: %d, Q: %d, R: %d\n", P, Q, R);
-  for (int i = 0; i < Q * R; i++)
-	printf("%lu, %lu\n", plain_b[i].encoding, plain_b[i].exponent);
   
   // find the largest exponent
   uint32_t max_exponent = 0;
@@ -997,14 +990,9 @@ void matmul(PaillierEncryptedNumber *cipher_a, FixedPointNumber *plain_b, Pailli
   for (int i = 0; i < Q * R; i++)
     max_exponent = max_exponent < plain_b[i].exponent ? plain_b[i].exponent : max_exponent;
   
-  printf("max exponent: %d\n", max_exponent);
   // increase exponent
   pen_increase_exponent_to(cipher_a, max_exponent, P * Q);
-  printf("increase a finished\n");
   fpn_increase_exponent_to(plain_b, max_exponent, Q * R);
-  printf("increase b finished\n");
-  for (int i = 0; i < Q * R; i++)
-	printf("%lu, %lu\n", plain_b[i].encoding, plain_b[i].exponent);
 
   cudaMallocAndSet((void **)&cipher_gpu, sizeof(gpu_cph) * P * Q);
   cudaMallocAndSet((void **)&plain_gpu, sizeof(plain_t) * Q * R);
@@ -1022,6 +1010,67 @@ void matmul(PaillierEncryptedNumber *cipher_a, FixedPointNumber *plain_b, Pailli
     r[i].base = cipher_a[0].base;
   }
 
+}
+
+void batch_matmul(PaillierEncryptedNumber *a, FixedPointNumber *b, PaillierEncryptedNumber *r, \
+  uint32_t *size_a, uint32_t *size_b, const uint32_t dim) {
+  // perform matmul
+  // size_a: list of dimensions. i.e., 3,2,6,4
+  // size_b: list of dimentions. i.e., 1,2,9,4
+  // dim, dimentions of a and b, i.e. 4
+  gpu_cph *cipher_a;
+  gpu_cph *plain_b;
+  gpu_cph *cipher_res;
+
+  uint32_t max_exponent = 0;
+  uint32_t count_a = 1;
+  uint32_t count_b = 1;
+  uint32_t count_r = 1;
+  uint32_t P = size_a[dim - 2];
+  uint32_t Q = size_a[dim - 1];
+  uint32_t R = size_b[dim - 2];
+
+  for (int i = 0; i < dim; i++) count_a *= size_a[i];
+  for (int i = 0; i < dim; i++) count_b *= size_b[i];
+  for (int i = 0; i < dim - 2; i++) count_res *= size_a[i];
+  count_res *= P * R;
+
+  uint32_t stride_a = P * Q;
+  uint32_t stride_b = Q * R;
+  uint32_t stride_res = P * R;
+
+  cudaMallocAndSet((void **)&cipher_a, sizeof(gpu_cph) * count_a);
+  cudaMallocAndSet((void **)&cipher_res, sizeof(gpu_cph) * count_res);
+  cudaMallocAndSet((void **)&plain_b, sizeof(plain_t) * count_b);
+  
+  for (int i = 0; i < count_a; i++)
+    max_exponent = max_exponent < a[i].exponent ? a[i].exponent : max_exponent;
+  for (int i = 0; i < count_b; i++)
+    max_exponent = max_exponent < b[i].exponent ? b[i].exponent : max_exponent;
+  
+  // pen_increase_exponent_to()
+  // fpn_increase_exponent_to()
+
+  extractPen(cipher_a, a, count_a, HostToDevice);
+  for (int i = 0; i < count_b; i++)
+    cudaMemcpy(plain_b + i, &b[i].encoding, sizeof(plain_t), cudaMemcpyHostToDevice);
+
+  uint32_t a_start = 0;
+  uint32_t b_start = 0;
+  for (int i = 0; i < dim; i++) {
+    uint32_t dim_a = size_a[i];
+    uint32_t dim_b = size_b[i];
+    uint32_t loop_dim = dim_a < dim_b ? dim_b : dim_a;
+    bool brdcst_a = dim_a == 1, brdcst_b = dim_b == 1;
+    
+    for (int j = 0; j < loop_dim; j++) {
+      // call raw matmul
+      if (!brdcst_a) a_start += stride_a;
+      if (!brdcst_b) b_start += stride_b;
+      if (brdcst_a && j == loop_dim - 1) a_start += stride_a;
+      if (brdcst_b && j == loop_dim - 1) b_start += stride_b;
+    }
+  }
 }
 
 }// extern "C"

@@ -7,7 +7,7 @@ from federatedml.secureprotol import gmpy_math
 import asyncio
 import random
 import numpy as np
-
+import threading
 
 def load(data):
     return data
@@ -207,6 +207,7 @@ def encrypt_and_obfuscate(data, pub, obfs=False):
 async def encrypt_obf_async(data, pub, obfs=False):
     d_flatten = data.flatten()
     d_shape = data.shape
+    # thread_list = 
     res = await asyncio.gather(*[paillier_gpu.encrypt_async(v) for v in d_flatten])
     return np.reshape(res, d_shape)
 
@@ -215,8 +216,3 @@ def keygen():
     paillier_gpu.init_gpu_keys(pub, priv)
 
     return pub, priv
-
-
-async def async_encrypt(value):
-
-    pass
