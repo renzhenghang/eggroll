@@ -55,8 +55,7 @@ class TestGpuCode(unittest.TestCase):
     def testEncrypt(self):
         fpn_list = generate_fpn(10000)
         pen_list = bench_mark(10000)(GPUEngine.encrypt_and_obfuscate)(fpn_list, self._pub_key, True)
-        pen_list_2 = [self._pub_key.raw_encrypt(v.encoding, random_value=1) for v in fpn_list]
-
+        
     def testEncryptAsync(self):
         fpn_list = generate_fpn(10000)
         pen_list = bench_mark(10000)(enc_async_test)(fpn_list)

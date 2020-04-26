@@ -1024,13 +1024,13 @@ void batch_matmul(PaillierEncryptedNumber *a, FixedPointNumber *b, PaillierEncry
   uint32_t max_exponent = 0;
   uint32_t count_a = 1;
   uint32_t count_b = 1;
-  uint32_t count_r = 1;
+  uint32_t count_res = 1;
   uint32_t P = size_a[dim - 2];
   uint32_t Q = size_a[dim - 1];
   uint32_t R = size_b[dim - 2];
   cudaStream_t streams[8];
   const uint32_t NUM_STREAMS = 8;
-  for (int i = 0; i < NUM_STREAMS; i++) cudaStreamCreate(&stremas[i]);
+  for (int i = 0; i < NUM_STREAMS; i++) cudaStreamCreate(&streams[i]);
 
   for (int i = 0; i < dim; i++) count_a *= size_a[i];
   for (int i = 0; i < dim; i++) count_b *= size_b[i];
