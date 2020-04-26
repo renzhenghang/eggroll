@@ -55,20 +55,11 @@ class TestGpuCode(unittest.TestCase):
     def testEncrypt(self):
         fpn_list = generate_fpn(10000)
         pen_list = bench_mark(10000)(GPUEngine.encrypt_and_obfuscate)(fpn_list, self._pub_key, True)
-        
-    def testEncryptAsync(self):
-        fpn_list = generate_fpn(10000)
-        pen_list = bench_mark(10000)(enc_async_test)(fpn_list)
 
     def testDecrypt(self):
-        fpn_list = generate_fpn(10)
-        pen_list = encrypt(fpn_list, False)
-        fpn_dec_list = decrypt(pen_list)
-        # print('dec res')
-        # dump_res(fpn_dec_list)
-        # for i in range(10):
-        #     print(fpn_list[i].encoding, fpn_dec_list[i].encoding)
-
+        fpn_list = generate_fpn(100000)
+        pen_list = GPUEngine.encrypt_and_obfuscate(fpn_list, self._pub_key, True)
+        fpn_dec_list = bench_mark(100000)(GPUEngine.decryptdecode)(fpn_list, self._pub_key, self._priv_key)
 
     def testScalaMul(self):
         pass
