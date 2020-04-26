@@ -1030,7 +1030,7 @@ void batch_matmul(PaillierEncryptedNumber *a, FixedPointNumber *b, PaillierEncry
   uint32_t R = size_b[dim - 2];
   cudaStream_t streams[8];
   const uint32_t NUM_STREAMS = 8;
-  for (int i = 0; i < 8; i++) cudaStreamCreate(&stremas[i]);
+  for (int i = 0; i < NUM_STREAMS; i++) cudaStreamCreate(&stremas[i]);
 
   for (int i = 0; i < dim; i++) count_a *= size_a[i];
   for (int i = 0; i < dim; i++) count_b *= size_b[i];
@@ -1083,6 +1083,18 @@ void batch_matmul(PaillierEncryptedNumber *a, FixedPointNumber *b, PaillierEncry
       res_start += stride_res;
     }
   }
+  cudaDeviceSynchronize();
+
+  for (int i = 0; i < count_res; i++) {
+    cudaMemcpy(r[i].cipher, cipher_res + i, sizeof(gpu_cph), cudaMemcpyDeviceToHost);
+    r[i].exponent = max_exponent * 2;
+    r[i].base = a[0].base;
+  }
+
+  for (int i = 0; i < NUM_STREAMS; i++) cudaStreamDestroy(streams[i]);
+  cudaFree(cipher_a);
+  cudaFree(plain_b);
+  cudaFree(cipher_res);
 }
 
 }// extern "C"
