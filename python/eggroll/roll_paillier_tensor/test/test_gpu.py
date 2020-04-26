@@ -29,7 +29,7 @@ def bench_mark(ins_num):
             elapsed = end_time - start_time
             throughput = ins_num/elapsed
             print('benchmark:', func.__name__)
-            print('{}s cost, {} instance per second'.format(elapsed, throughput))
+            print('{0:.2f}s cost, {1:.2f} instance per second'.format(elapsed, throughput))
             return res
         return wrapper
     return decorator
