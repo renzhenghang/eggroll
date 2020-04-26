@@ -198,8 +198,12 @@ def decryptdecode(data, pub, priv):
 
 
 def encrypt_and_obfuscate(data, pub, obfs=False):
-    d_flatten = data.flatten()
-    d_shape = data.shape
+    if isinstance(data, np.ndarray):
+        d_flatten = data.flatten()
+        d_shape = data.shape
+    else:
+        d_flatten = data
+        d_shape = (len(data),)
     res = paillier_gpu.encrypt(d_flatten, obfs)
 
     return np.reshape(res, d_shape)
