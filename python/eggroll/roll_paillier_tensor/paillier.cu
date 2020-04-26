@@ -609,7 +609,7 @@ void call_raw_matmul(gpu_cph *cipher_gpu, plain_t *plain_b, gpu_cph *cipher_res,
   
   dim3 threadPerBlock(TPI, 4, 4); // TODO: remove hardcoded.
   uint32_t x_dim = ceil((double)P/(double)threadPerBlock.x);
-  uint32_t y_dim = ceil((double)P/(double)threadPerBlock.y);
+  uint32_t y_dim = ceil((double)R/(double)threadPerBlock.y);
 
   dim3 blockPerGrid(x_dim, y_dim);
 
@@ -977,7 +977,6 @@ void matmul(PaillierEncryptedNumber *cipher_a, FixedPointNumber *plain_b, Pailli
   //  2. align ciphers
   //  3. call_raw_matmul
   //  4. copy back to CPU with corresponding exponent
-  
   gpu_cph *cipher_gpu = NULL;
   plain_t *plain_gpu = NULL;
   gpu_cph *cipher_res = NULL;
@@ -1029,6 +1028,9 @@ void batch_matmul(PaillierEncryptedNumber *a, FixedPointNumber *b, PaillierEncry
   uint32_t P = size_a[dim - 2];
   uint32_t Q = size_a[dim - 1];
   uint32_t R = size_b[dim - 2];
+  cudaStream_t streams[8];
+  const uint32_t NUM_STREAMS = 8;
+  for (int i = 0; i < 8; i++) cudaStreamCreate(&stremas[i]);
 
   for (int i = 0; i < dim; i++) count_a *= size_a[i];
   for (int i = 0; i < dim; i++) count_b *= size_b[i];
@@ -1057,6 +1059,14 @@ void batch_matmul(PaillierEncryptedNumber *a, FixedPointNumber *b, PaillierEncry
 
   uint32_t a_start = 0;
   uint32_t b_start = 0;
+  uint32_t res_start = 0;
+
+  dim3 threadPerBlock(TPI, 4, 4); // TODO: remove hardcoded.
+  uint32_t x_dim = ceil((double)P/(double)threadPerBlock.x);
+  uint32_t y_dim = ceil((double)R/(double)threadPerBlock.y);
+
+  dim3 blockPerGrid(x_dim, y_dim);
+
   for (int i = 0; i < dim; i++) {
     uint32_t dim_a = size_a[i];
     uint32_t dim_b = size_b[i];
@@ -1065,10 +1075,12 @@ void batch_matmul(PaillierEncryptedNumber *a, FixedPointNumber *b, PaillierEncry
     
     for (int j = 0; j < loop_dim; j++) {
       // call raw matmul
-      if (!brdcst_a) a_start += stride_a;
-      if (!brdcst_b) b_start += stride_b;
-      if (brdcst_a && j == loop_dim - 1) a_start += stride_a;
-      if (brdcst_b && j == loop_dim - 1) b_start += stride_b;
+      cudaStreamSynchronize(streams[j % NUM_STREAMS]);
+      raw_matmul<<<blockPerGrid, threadPerBlock, 0, streams[j % NUM_STREAMS]>>>(gpu_pub_key, \
+      err_report, cipher_a + a_start, plain_b + b_start, cipher_res + res_start, P, Q, R);
+      if (!brdcst_a || j == loop_dim - 1) a_start += stride_a;
+      if (!brdcst_b || j == loop_dim - 1) b_start += stride_b;
+      res_start += stride_res;
     }
   }
 }
