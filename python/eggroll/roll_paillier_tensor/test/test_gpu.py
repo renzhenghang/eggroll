@@ -174,6 +174,7 @@ class TestGpuCode(unittest.TestCase):
         encoded = FixedPointNumber.encode(num)
         encrypted = self._pub_key.encrypt(num)
         print(hex(encoded.encoding), encoded.encoding.bit_length())
+        print(encoded.deocde())
         print(hex(encrypted.ciphertext(False)))
 
 
