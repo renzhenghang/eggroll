@@ -76,8 +76,8 @@ class TestGpuCode(unittest.TestCase):
         pass
 
     def testAdd(self):
-        fpn_list1 = generate_fpn()
-        fpn_list2 = generate_fpn()
+        fpn_list1 = generate_sample()
+        fpn_list2 = generate_sample()
         pen_list1 = encrypt(fpn_list1, False)
         pen_list2 = encrypt(fpn_list2, False)
 
@@ -149,7 +149,7 @@ class TestGpuCode(unittest.TestCase):
         # dec_np2 = CPUEngine.decryptdecode(pen_np2, self._pub_key, self._priv_key)
 
     def testSum(self):
-        fpn_list = generate_fpn(3)
+        fpn_list = generate_sample()
 
         fpn_sum = sum(fpn_list)
 
@@ -168,6 +168,13 @@ class TestGpuCode(unittest.TestCase):
         print(hex(fpn_list[1].encoding), fpn_list[1].exponent)
         print(hex(fpn_list[2].encoding), fpn_list[2].exponent)
         # pass
+    
+    def testNegtive(self):
+        num = -1.0
+        encoded = FixedPointNumber.encode(num)
+        encrypted = self._pub_key.encrypt(num)
+        print(encoded.encoding)
+        print(encrypted.ciphertext(False))
 
 
 if __name__ == '__main__':
