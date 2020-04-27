@@ -57,8 +57,9 @@ class TestGpuCode(unittest.TestCase):
 
     def testEncrypt(self):
         fpn_list = generate_fpn()
+        cpu_list = np.vectorize(lambda c: c.decode())(fpn_list)
         pen_list = bench_mark(TEST_SIZE)(GPUEngine.encrypt_and_obfuscate)(fpn_list, self._pub_key, True)
-        cpu_pen_list = bench_mark(TEST_SIZE)(CPUEngine.encrypt_and_obfuscate)(fpn_list, self._pub_key)
+        cpu_pen_list = bench_mark(TEST_SIZE)(CPUEngine.encrypt_and_obfuscate)(cpu_list, self._pub_key)
 
     def testDecrypt(self):
         fpn_list = generate_fpn()
