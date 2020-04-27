@@ -15,8 +15,8 @@ TEST_SIZE = 100000
 TEST_SHAPE = (10, 100, 100)
 
 # random.seed()
-def generate_fpn(length=TEST_SIZE, shape=TEST_SHAPE):
-    return np.reshape([FixedPointNumber.encode(random.random()) for _ in range(length)], TEST_SHAPE)
+def generate_sample(length=TEST_SIZE, shape=TEST_SHAPE):
+    return np.reshape([random.random() for _ in range(length)], TEST_SHAPE)
 
 def dump_res(fpn_list):
     print('\nencoding\t\texponent')
@@ -56,13 +56,12 @@ class TestGpuCode(unittest.TestCase):
         bench_mark(1)(init_gpu_keys)(cls._pub_key, cls._priv_key)
 
     def testEncrypt(self):
-        fpn_list = generate_fpn()
-        cpu_list = np.vectorize(lambda c: c.decode())(fpn_list)
+        fpn_list = generate_sample()
         pen_list = bench_mark(TEST_SIZE)(GPUEngine.encrypt_and_obfuscate)(fpn_list, self._pub_key, True)
-        cpu_pen_list = bench_mark(TEST_SIZE)(CPUEngine.encrypt_and_obfuscate)(cpu_list, self._pub_key)
+        cpu_pen_list = bench_mark(TEST_SIZE)(CPUEngine.encrypt_and_obfuscate)(fpn_list, self._pub_key)
 
     def testDecrypt(self):
-        fpn_list = generate_fpn()
+        fpn_list = generate_sample()
         pen_list = GPUEngine.encrypt_and_obfuscate(fpn_list, self._pub_key, True)
         fpn_dec_list = bench_mark(TEST_SIZE)(GPUEngine.decryptdecode)(pen_list, self._pub_key, self._priv_key)
         cpu_dec_list = bench_mark(TEST_SIZE)(CPUEngine.decryptdecode)(pen_list, self._pub_key, self._priv_key)
