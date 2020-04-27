@@ -173,8 +173,8 @@ class TestGpuCode(unittest.TestCase):
         num = -1.0
         encoded = FixedPointNumber.encode(num)
         encrypted = self._pub_key.encrypt(num)
-        print(encoded.encoding)
-        print(encrypted.ciphertext(False))
+        print(hex(encoded.encoding), encoded.encoding.bit_length())
+        print(hex(encrypted.ciphertext(False)))
 
 
 if __name__ == '__main__':
