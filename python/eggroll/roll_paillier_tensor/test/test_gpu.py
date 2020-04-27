@@ -58,11 +58,13 @@ class TestGpuCode(unittest.TestCase):
     def testEncrypt(self):
         fpn_list = generate_fpn()
         pen_list = bench_mark(TEST_SIZE)(GPUEngine.encrypt_and_obfuscate)(fpn_list, self._pub_key, True)
+        cpu_pen_list = bench_mark(TEST_SIZE)(CPUEngine.encrypt_and_obfuscate)(fpn_list, self._pub_key)
 
     def testDecrypt(self):
         fpn_list = generate_fpn()
         pen_list = GPUEngine.encrypt_and_obfuscate(fpn_list, self._pub_key, True)
         fpn_dec_list = bench_mark(TEST_SIZE)(GPUEngine.decryptdecode)(pen_list, self._pub_key, self._priv_key)
+        cpu_dec_list = bench_mark(TEST_SIZE)(CPUEngine.decryptdecode)(pen_list, self._pub_key, self._priv_key)
 
     def testScalaMul(self):
         pass
