@@ -198,7 +198,7 @@ def decryptdecode(data, pub, priv):
 
 
 def encrypt_and_obfuscate(data, pub, obfs=False):
-    data = np.vectorize(pub.encode)(data)
+    data = np.vectorize(FixedPointNumber.encode)(data)
     if isinstance(data, np.ndarray):
         d_flatten = data.flatten()
         d_shape = data.shape
