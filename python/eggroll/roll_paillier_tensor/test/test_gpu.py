@@ -11,9 +11,12 @@ import functools
 import time
 import asyncio
 
+TEST_SIZE = 100000
+TEST_SHAPE = (10, 100, 100)
+
 # random.seed()
-def generate_fpn(length):
-    return [FixedPointNumber.encode(random.random()) for _ in range(length)]
+def generate_fpn(length=TEST_SIZE, shape=TEST_SHAPE):
+    return np.reshape([FixedPointNumber.encode(random.random()) for _ in range(length)], TEST_SHAPE)
 
 def dump_res(fpn_list):
     print('\nencoding\t\texponent')
@@ -53,13 +56,13 @@ class TestGpuCode(unittest.TestCase):
         bench_mark(1)(init_gpu_keys)(cls._pub_key, cls._priv_key)
 
     def testEncrypt(self):
-        fpn_list = generate_fpn(10000)
-        pen_list = bench_mark(10000)(GPUEngine.encrypt_and_obfuscate)(fpn_list, self._pub_key, True)
+        fpn_list = generate_fpn()
+        pen_list = bench_mark(TEST_SIZE)(GPUEngine.encrypt_and_obfuscate)(fpn_list, self._pub_key, True)
 
     def testDecrypt(self):
-        fpn_list = generate_fpn(100000)
+        fpn_list = generate_fpn()
         pen_list = GPUEngine.encrypt_and_obfuscate(fpn_list, self._pub_key, True)
-        fpn_dec_list = bench_mark(100000)(GPUEngine.decryptdecode)(pen_list, self._pub_key, self._priv_key)
+        fpn_dec_list = bench_mark(TEST_SIZE)(GPUEngine.decryptdecode)(pen_list, self._pub_key, self._priv_key)
 
     def testScalaMul(self):
         pass
@@ -68,22 +71,11 @@ class TestGpuCode(unittest.TestCase):
         pass
 
     def testMul(self):
-        fpn_list1 = generate_fpn(10)
-        fpn_list2 = generate_fpn(10)
-
-        pen_list2 = encrypt(fpn_list2, False)
-        pen_res = mul_impl(pen_list2, fpn_list1)
-
-        dec_res_gpu = decrypt(pen_res)
-        
-        std_res = [pen_list2[i] * fpn_list1[i].decode() for i in range(10)]
-        
-        std_dec = decrypt(std_res)
-
+        pass
 
     def testAdd(self):
-        fpn_list1 = generate_fpn(10)
-        fpn_list2 = generate_fpn(10)
+        fpn_list1 = generate_fpn()
+        fpn_list2 = generate_fpn()
         pen_list1 = encrypt(fpn_list1, False)
         pen_list2 = encrypt(fpn_list2, False)
 

@@ -895,9 +895,6 @@ void decrypt(PaillierEncryptedNumber *cipher, gpu_cph *r, const uint32_t count) 
   gpu_cph *res_gpu;
   cudaMalloc(&raw_cipher_gpu, sizeof(gpu_cph) * count);
   cudaMalloc(&res_gpu, sizeof(gpu_cph) * count);
-  // memset(r, 0, sizeof(plain_t) * count);
-
-  // dumpMem(cipher[0].cipher, sizeof(gpu_cph));
 
   for (int i = 0; i < count; i++)
     cudaMemcpy(raw_cipher_gpu + i, cipher[i].cipher, sizeof(gpu_cph), cudaMemcpyHostToDevice);
