@@ -62,7 +62,7 @@ class TestGpuCode(unittest.TestCase):
 
     def testDecrypt(self):
         fpn_list = generate_sample()
-        pen_list = GPUEngine.encrypt_and_obfuscate(fpn_list, self._pub_key, True)
+        pen_list = CPUEngine.encrypt_and_obfuscate(fpn_list, self._pub_key)
         fpn_dec_list = bench_mark(TEST_SIZE)(GPUEngine.decryptdecode)(pen_list, self._pub_key, self._priv_key)
         cpu_dec_list = bench_mark(TEST_SIZE)(CPUEngine.decryptdecode)(pen_list, self._pub_key, self._priv_key)
         print(fpn_list[0])
