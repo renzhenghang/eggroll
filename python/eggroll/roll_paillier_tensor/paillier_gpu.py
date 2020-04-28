@@ -198,7 +198,7 @@ def decrypt(values):
     plains = get_int(plain_buffer.raw, len(values), 256)
 
     fpn_list = [
-        FixedPointNumber(plains[i], values[i].exponent) for i in range(len(values))
+        FixedPointNumber(plains[i], values[i].exponent, _pub_key.n, _pub_key.max_int) for i in range(len(values))
     ]
     
     return fpn_list

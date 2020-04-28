@@ -16,7 +16,7 @@ TEST_SHAPE = (10, 100, 100)
 
 # random.seed()
 def generate_sample(length=TEST_SIZE, shape=TEST_SHAPE):
-    return np.reshape([random.random() for _ in range(length)], TEST_SHAPE)
+    return np.reshape([random.gauss(0, 10) for _ in range(length)], TEST_SHAPE)
 
 def dump_res(fpn_list):
     print('\nencoding\t\texponent')
@@ -65,6 +65,8 @@ class TestGpuCode(unittest.TestCase):
         pen_list = GPUEngine.encrypt_and_obfuscate(fpn_list, self._pub_key, True)
         fpn_dec_list = bench_mark(TEST_SIZE)(GPUEngine.decryptdecode)(pen_list, self._pub_key, self._priv_key)
         cpu_dec_list = bench_mark(TEST_SIZE)(CPUEngine.decryptdecode)(pen_list, self._pub_key, self._priv_key)
+        print(fpn_dec_list[:10])
+        print(cpu_dec_list[:10])
 
     def testScalaMul(self):
         pass
@@ -174,7 +176,7 @@ class TestGpuCode(unittest.TestCase):
         encoded = FixedPointNumber.encode(num)
         encrypted = self._pub_key.encrypt(num)
         print(hex(encoded.encoding), encoded.encoding.bit_length())
-        print(encoded.deocde())
+        print(encoded.decode())
         print(hex(encrypted.ciphertext(False)))
 
 
