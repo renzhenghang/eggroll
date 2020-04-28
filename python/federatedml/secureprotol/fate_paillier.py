@@ -105,6 +105,9 @@ class PaillierPublicKey(object):
 
         return encryptednumber
 
+    def encode(self, value, precision=None):
+        return FixedPointNumber.encode(value, self.n, self.max_int, precision)
+
 
 class PaillierPrivateKey(object):
     """Contains a private key and associated decryption method.
