@@ -164,6 +164,7 @@ def raw_decrypt_gpu(ciphers):
 def encrypt(values, obf=True):
     # values: list of Fixed Point Number
     global _cuda_lib
+    global _pub_key
     # [print(v.encoding) for v in values]
     fpn_list = [
         c_FixedPointNumber(v) for v in values
@@ -188,6 +189,7 @@ def encrypt(values, obf=True):
 @check_key
 def decrypt(values):
     global _cuda_lib
+    global _pub_key
     pen_list = [
         c_PaillierEncryptedNumber(v) for v in values
     ]
