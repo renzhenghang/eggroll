@@ -120,7 +120,7 @@ void cipher_align(PaillierEncryptedNumber *a, PaillierEncryptedNumber *b, const 
     map[i] = a[i].exponent < b[i].exponent ? 0 : 1;
     uint64_t diff = (uint64_t) pow(a[i].base, abs((int)a[i].exponent- (int)b[i].exponent));
     //cudaMemcpy(cof + i, &diff, sizeof(uint64_t), cudaMemcpyHostToDevice);
-    set_ui64<PLAIN_BITS>(cof + i, diff);
+    set_ui64<CPH_BITS>(cof + i, diff);
     if (a[i].exponent < b[i].exponent)
       a[i].exponent = b[i].exponent;
     else b[i].exponent = a[i].exponent;
@@ -256,10 +256,10 @@ void plain_mul_cipher(FixedPointNumber *b, PaillierEncryptedNumber *a, \
   //   1. perform raw mul
   //   2. add exponent together.
   //   3. copy to cpu
-  plain_t *plain_gpu;
+  gpu_cph *plain_gpu;
   gpu_cph *cipher_gpu;
   gpu_cph *cipher_res;
-  cudaMallocAndSet((void **)&plain_gpu, sizeof(plain_t) * count);
+  cudaMallocAndSet((void **)&plain_gpu, sizeof(gpu_cph) * count);
   cudaMallocAndSet((void **)&cipher_gpu, sizeof(gpu_cph) * count);
   cudaMallocAndSet((void **)&cipher_res, sizeof(gpu_cph) * count);
 
