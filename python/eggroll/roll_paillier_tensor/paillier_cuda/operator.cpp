@@ -41,7 +41,7 @@ void call_raw_encrypt_obfs(gpu_cph *plains_on_gpu, const uint32_t count,  \
   // all parameters on gpu
 
   int TPB = 128;
-  int IPB = TPB/TPI;
+  int IPB = TPB/PAILLIER_TPI;
   int block_size = (count + IPB - 1)/IPB;
   int thread_size = TPB;
   if (rand_vals_gpu != NULL) {
@@ -57,7 +57,7 @@ void call_raw_encrypt_obfs(gpu_cph *plains_on_gpu, const uint32_t count,  \
 void call_raw_add(gpu_cph *cipher_a, gpu_cph *cipher_b, gpu_cph *cipher_res, const uint32_t count) {
   
   int TPB = 128;
-  int IPB = TPB/TPI;
+  int IPB = TPB/PAILLIER_TPI;
 
   int block_size = (count + IPB - 1) / IPB;
   int thread_size = TPB;
@@ -71,7 +71,7 @@ void call_raw_mul(gpu_cph *cipher_a, plain_t *plain_b, gpu_cph *cipher_res, cons
   gpu_cph *plain_b_ext;
   
   int TPB = 128;
-  int IPB = TPB/TPI;
+  int IPB = TPB/PAILLIER_TPI;
 
   cudaMallocAndSet((void **)&plain_b_ext, sizeof(gpu_cph) * count);
 
@@ -90,7 +90,7 @@ void call_raw_mul(gpu_cph *cipher_a, plain_t *plain_b, gpu_cph *cipher_res, cons
 void call_raw_decrypt(gpu_cph *cipher_gpu, const uint32_t count, gpu_cph *res) {
   
   int TPB = 128;
-  int IPB = TPB/TPI;
+  int IPB = TPB/PAILLIER_TPI;
   int block_size = (count + IPB - 1) / IPB;
   int thread_size = TPB;
 
@@ -106,7 +106,7 @@ void call_raw_matmul(gpu_cph *cipher_gpu, plain_t *plain_b, gpu_cph *cipher_res,
   for (int i = 0; i < Q * R; i++)
     cudaMemcpy(plain_gpu + i, plain_b + i, sizeof(plain_t), cudaMemcpyDeviceToDevice);
   
-  dim3 threadPerBlock(TPI, 4, 4); // TODO: remove hardcoded.
+  dim3 threadPerBlock(PAILLIER_TPI, 4, 4); // TODO: remove hardcoded.
   uint32_t x_dim = ceil((double)P/(double)threadPerBlock.x);
   uint32_t y_dim = ceil((double)R/(double)threadPerBlock.y);
 
@@ -560,7 +560,7 @@ void batch_matmul(PaillierEncryptedNumber *a, FixedPointNumber *b, PaillierEncry
   uint32_t b_start = 0;
   uint32_t res_start = 0;
 
-  dim3 threadPerBlock(TPI, 4, 4); // TODO: remove hardcoded.
+  dim3 threadPerBlock(PAILLIER_TPI, 4, 4); // TODO: remove hardcoded.
   uint32_t x_dim = ceil((double)P/(double)threadPerBlock.x);
   uint32_t y_dim = ceil((double)R/(double)threadPerBlock.y);
 
