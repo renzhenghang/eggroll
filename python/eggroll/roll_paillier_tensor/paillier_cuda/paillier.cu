@@ -3,7 +3,6 @@
 #include <cuda.h>
 #include <gmp.h>
 #include <sys/time.h>
-#include "cgbn/cgbn.h"
 #include "samples/utility/gpu_support.h"
 #include <curand.h>
 #include <curand_kernel.h>
