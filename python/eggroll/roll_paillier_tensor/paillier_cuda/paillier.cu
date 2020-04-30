@@ -1,7 +1,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <cuda.h>
-#include <gmp.h>
 #include <sys/time.h>
 #include "samples/utility/gpu_support.h"
 #include <curand.h>

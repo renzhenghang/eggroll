@@ -3,6 +3,7 @@
 #include "cgbn/cgbn.h"
 #include <stdint.h>
 #include <cuda.h>
+#include <gmp.h>
 
 // IMPORTANT:  DO NOT DEFINE TPI OR BITS BEFORE INCLUDING CGBN
 #define PAILLIER_TPI 32
