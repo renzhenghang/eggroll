@@ -1,4 +1,4 @@
-#include "opreator.h"
+// #include "opreator.h"
 #include "paillier.cu"
 
 extern "C" {

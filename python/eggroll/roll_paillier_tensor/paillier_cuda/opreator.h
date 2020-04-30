@@ -10,9 +10,9 @@ void reset();
 // low level
 void call_raw_encrypt_obfs(gpu_cph *plains_on_gpu, const uint32_t count, gpu_cph *ciphers_on_gpu, uint32_t* rand_vals_gpu);
 void call_raw_add(gpu_cph *cipher_a, gpu_cph *cipher_b, gpu_cph *cipher_res, const uint32_t count);
-void call_raw_mul(gpu_cph *cipher_a, plain_t *plain_b, gpu_cph *cipher_res, const uint32_t count);
+// void call_raw_mul(gpu_cph *cipher_a, plain_t *plain_b, gpu_cph *cipher_res, const uint32_t count);
 void call_raw_decrypt(gpu_cph *cipher_gpu, const uint32_t count, gpu_cph *res);
-void call_raw_matmul(gpu_cph *cipher_gpu, plain_t *plain_b, gpu_cph *cipher_res, const uint32_t P, const uint32_t Q, const uint32_t R);
+// void call_raw_matmul(gpu_cph *cipher_gpu, plain_t *plain_b, gpu_cph *cipher_res, const uint32_t P, const uint32_t Q, const uint32_t R);
 
 // high level
 void cipher_align(PaillierEncryptedNumber *a, PaillierEncryptedNumber *b, const uint32_t count);
