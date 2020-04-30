@@ -1,7 +1,6 @@
 #ifndef PAILLIER_CUDA_COMMON
 #define PAILLIER_CUDA_COMMON
 #include "cgbn/cgbn.h"
-#include "cgbn_param.h"
 #include <stdint.h>
 #include <cuda.h>
 
