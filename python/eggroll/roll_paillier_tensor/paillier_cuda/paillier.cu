@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <cuda.h>
 #include <sys/time.h>
+#include "common.h"
 #include "samples/utility/gpu_support.h"
 #include <curand.h>
 #include <curand_kernel.h>
@@ -10,7 +11,6 @@
 
 // #include <chrono>
 #include <cassert>
-#include "common.h"
 
 template<uint32_t _BITS, uint32_t _TPI>
 __device__ __forceinline__ 
