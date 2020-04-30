@@ -153,7 +153,7 @@ __global__ __noinline__ void apply_obfuscator(PaillierPublicKey *gpu_pub_key, cg
 *   obfuscators: obfused encryption text.
 */
   int idx = blockIdx.x*blockDim.x + threadIdx.x;
-  int tid= idx/TPI;
+  int tid= idx/PAILLIER_TPI;
   if(tid>=count)
     return;
 
@@ -186,7 +186,7 @@ __global__ void raw_encrypt(PaillierPublicKey *gpu_pub_key, cgbn_error_report_t 
 * out:
 *   ciphers: encrypted result.
 */
-  int tid=(blockIdx.x*blockDim.x + threadIdx.x)/TPI;
+  int tid=(blockIdx.x*blockDim.x + threadIdx.x)/PAILLIER_TPI;
   if(tid>=count)
     return;
   context_t      bn_context(cgbn_report_monitor, report, tid);  
@@ -214,7 +214,7 @@ __global__ __noinline__ void raw_encrypt_with_obfs(PaillierPublicKey *gpu_pub_ke
 *   ciphers: encrpted text.
 */
   int idx = blockIdx.x*blockDim.x + threadIdx.x;
-  int tid= idx/TPI;
+  int tid= idx/PAILLIER_TPI;
   if(tid>=count)
     return;
   context_t     bn_context(cgbn_report_monitor, report, tid);  
@@ -256,7 +256,7 @@ __global__ __noinline__ void raw_add(PaillierPublicKey *gpu_pub_key, cgbn_error_
 * out:
 *   ciphers_r: encrypted result.
 */
-  int tid=(blockIdx.x*blockDim.x + threadIdx.x)/TPI;
+  int tid=(blockIdx.x*blockDim.x + threadIdx.x)/PAILLIER_TPI;
   if(tid>=count)
     return;
   context_t      bn_context(cgbn_report_monitor, report, tid);  
@@ -280,7 +280,7 @@ __global__ void raw_mul(PaillierPublicKey *gpu_pub_key, cgbn_error_report_t *rep
 * out:
 *   ciphers_r: encrypted result.
 */
-  int tid=(blockIdx.x*blockDim.x + threadIdx.x)/TPI;
+  int tid=(blockIdx.x*blockDim.x + threadIdx.x)/PAILLIER_TPI;
   if(tid>=count)
     return;
   context_t      bn_context(cgbn_report_monitor, report, tid);  
@@ -353,7 +353,7 @@ __global__ void raw_decrypt(PaillierPrivateKey *gpu_priv_key, PaillierPublicKey 
 * out:
 *   plains: decrypted plain text.
 */
-  int tid=(blockIdx.x*blockDim.x + threadIdx.x)/TPI;
+  int tid=(blockIdx.x*blockDim.x + threadIdx.x)/PAILLIER_TPI;
   if(tid>=count)
     return;
   context_t      bn_context(cgbn_report_monitor, report, tid);
