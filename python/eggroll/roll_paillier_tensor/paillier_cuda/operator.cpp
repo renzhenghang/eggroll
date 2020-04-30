@@ -76,8 +76,6 @@ void call_raw_mul(gpu_cph *cipher_a, gpu_cph *plain_b, gpu_cph *cipher_res, cons
   int thread_size = TPB;
 
   raw_mul<<<block_size, thread_size>>>(gpu_pub_key, err_report, cipher_res, cipher_a, plain_b, count);
-
-  cudaFree(plain_b_ext);
 }
 
 void call_raw_decrypt(gpu_cph *cipher_gpu, const uint32_t count, gpu_cph *res) {
@@ -100,10 +98,8 @@ void call_raw_matmul(gpu_cph *cipher_gpu, gpu_cph *plain_b, gpu_cph *cipher_res,
 
   dim3 blockPerGrid(x_dim, y_dim);
 
-  raw_matmul<<<blockPerGrid, threadPerBlock>>>(gpu_pub_key, err_report, cipher_gpu, plain_gpu, \
+  raw_matmul<<<blockPerGrid, threadPerBlock>>>(gpu_pub_key, err_report, cipher_gpu, plain_b, \
     cipher_res, P, Q, R);
-  
-  cudaFree(plain_gpu);
 }
 
 

@@ -111,7 +111,7 @@ inline void penFromBuffer(PaillierEncryptedNumber *dst, gpu_cph *src, uint32_t c
 }
 
 template<uint32_t _BITS>
-inline void set_ui64(cgbn_mem_t<_BITS> target, uint64_t value) {
+inline void set_ui64(cgbn_mem_t<_BITS> *target, uint64_t value) {
   cudaMemcpy((void *)target, &value, sizeof(uint64_t), cudaMemcpyHostToDevice);
 }
 
