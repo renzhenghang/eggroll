@@ -1,5 +1,5 @@
 #include "opreator.h"
-
+#include "paillier.cu"
 
 extern "C" {
 PaillierPublicKey* gpu_pub_key;

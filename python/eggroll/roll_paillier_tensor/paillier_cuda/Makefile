@@ -17,10 +17,9 @@ ifndef CGBN_HOME
 	CGBN_LIB := 
 endif
 
-
 volta: 
-	nvcc $(CGBN_INC) $(CGBN_LIB) --shared -arch=sm_70 paillier.cu -o paillier_gpu.so \
+	nvcc -x cu $(CGBN_INC) $(CGBN_LIB) --shared -arch=sm_70 operator.cpp -o paillier_gpu.so \
 	 --compiler-options '-fPIC' -lgmp && mv paillier_gpu.so ../../../lib
 
 clean:
-	rm -f paillier_gpu.so
+	rm -f ../../../lib/paillier_gpu.so
