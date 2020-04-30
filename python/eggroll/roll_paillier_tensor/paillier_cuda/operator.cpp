@@ -158,7 +158,7 @@ void pen_increase_exponent_to(PaillierEncryptedNumber *a, const uint32_t exponen
    const uint32_t count) {
   printf("enter pen\n");
   printf("count: %d\n", count);
-  plain_t *cof;
+  gpu_cph *cof;
   gpu_cph *cipher_gpu;
   gpu_cph *cipher_res;
   cudaMallocAndSet((void **)&cof, sizeof(plain_t) * count);
@@ -169,7 +169,7 @@ void pen_increase_exponent_to(PaillierEncryptedNumber *a, const uint32_t exponen
     uint32_t diff = exponent >= a[i].exponent ? exponent - a[i].exponent : 0;
     uint64_t tmp = (uint64_t) pow(base, diff);
     // cudaMemcpy(cof + i, &tmp, sizeof(plain_t), cudaMemcpyHostToDevice);
-    set_ui64<PLAIN_BITS>(cof + i, diff);
+    set_ui64<CPH_BITS>(cof + i, diff);
   }
   
   extractPen(cipher_gpu, a, count, HostToDevice);
