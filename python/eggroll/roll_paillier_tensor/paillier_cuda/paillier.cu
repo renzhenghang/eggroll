@@ -94,12 +94,15 @@ template<uint32_t _BITS, uint32_t _TPI>
 __global__ __noinline__ 
 void mul(cgbn_mem_t<_BITS> *a, cgbn_mem_t<_BITS> *b, cgbn_mem_t<_BITS> *res, \
     cgbn_error_report_t *report, const uint32_t count) {
+
+  typedef cgbn_context_t<_TPI> mul_context;
+  typedef cgbn_env_t<mul_context, _BITS> env_mul_t;
   uint32_t tid = (blockIdx.x * blockDim.x + threadIdx.x)/_TPI;
   if (tid >= count)
     return;
   
-  cgbn_context_t<_TPI> bn_context(cgbn_report_monitor, report, tid);
-  typename cgbn_env_t<cgbn_context_t<_TPI>, _BITS> bn_env(bn_context.env<typename cgbn_env_t<cgbn_context_t<_TPI>, _BITS>>());
+  mul_context bn_context(cgbn_report_monitor, report, tid);
+  env_mul_t bn_env(bn_context.env<env_mul_t>());
   typename cgbn_env_t<cgbn_context_t<_TPI>, _BITS>::cgbn_t oprand1, oprand2, tmp;
   
   cgbn_load(bn_env, oprand1, a + tid);

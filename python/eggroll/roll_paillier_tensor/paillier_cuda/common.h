@@ -11,7 +11,7 @@
 #define MAX_RAND_SEED 4294967295U
 #define WINDOW_BITS 5
 // helpful typedefs for the kernel
-typedef cgbn_context_t<PAILLIER_TPI>         context_t;
+typedef cgbn_context_t<PAILLIER_TPI>    context_t;
 typedef cgbn_env_t<context_t, CPH_BITS> env_cph_t;
 typedef cgbn_mem_t<CPH_BITS> gpu_cph;
 
