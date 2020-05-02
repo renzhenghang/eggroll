@@ -158,10 +158,11 @@ class PaillierPrivateKey(object):
            return the solution modulo n=pq.
         """
         u = (mp - mq) * self.q_inverse % self.p
-        print('mp - mq')
-        print(hex(mp - mq))
+        # print('mp - mq')
+        # print(hex(mp - mq))
         x = (mq + (u * self.q)) % self.public_key.n
-
+        print('x')
+        print(hex(x))
         return x
 
     def raw_decrypt(self, ciphertext):
