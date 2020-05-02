@@ -379,9 +379,9 @@ __global__ void raw_decrypt(PaillierPrivateKey *gpu_priv_key, PaillierPublicKey 
   cgbn_mul(bn_env, tmp, tmp, q_inverse); 
   cgbn_rem(bn_env, tmp, tmp, p);
   cgbn_mul(bn_env, tmp, tmp, q);
+  if (dbg_msg != NULL) cgbn_store(bn_env, dbg_msg + tid, tmp);
   cgbn_add(bn_env, tmp, mq, tmp);
   cgbn_rem(bn_env, tmp, tmp, n);
-  if (dbg_msg != NULL) cgbn_store(bn_env, dbg_msg + tid, tmp);
   
   cgbn_store(bn_env, plains + tid, tmp);
 }
