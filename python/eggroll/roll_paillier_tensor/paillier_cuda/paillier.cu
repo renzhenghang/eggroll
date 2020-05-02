@@ -378,8 +378,8 @@ __global__ void raw_decrypt(PaillierPrivateKey *gpu_priv_key, PaillierPublicKey 
   cgbn_sub(bn_env, tmp, mp, mq);
   cgbn_mul(bn_env, tmp, tmp, q_inverse); 
   cgbn_rem(bn_env, tmp, tmp, p);
-  cgbn_mul(bn_env, tmp, tmp, q);
   if (dbg_msg != NULL) cgbn_store(bn_env, dbg_msg + tid, tmp);
+  cgbn_mul(bn_env, tmp, tmp, q);
   cgbn_add(bn_env, tmp, mq, tmp);
   cgbn_rem(bn_env, tmp, tmp, n);
   
