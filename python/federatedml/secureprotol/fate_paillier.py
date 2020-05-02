@@ -157,11 +157,9 @@ class PaillierPrivateKey(object):
         """the Chinese Remainder Theorem as needed for decryption.
            return the solution modulo n=pq.
         """
-        print('cpu mp')
-        print(mp)
-        print('cpu mq')
-        print(mq)
         u = (mp - mq) * self.q_inverse % self.p
+        print('mp - mq')
+        print(hex(mp - mq))
         x = (mq + (u * self.q)) % self.public_key.n
 
         return x
