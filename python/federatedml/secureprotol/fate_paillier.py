@@ -159,6 +159,10 @@ class PaillierPrivateKey(object):
         """
         u = (mp - mq) * self.q_inverse % self.p
         # print('mp - mq')
+        print('before mod p')
+        print(hex((mp - mq) * self.q_inverse))
+        print('p')
+        print(hex(p))
         print('u')
         print(hex(u))
         # print(hex(mp - mq))
