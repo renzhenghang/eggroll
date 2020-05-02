@@ -19,7 +19,7 @@ _priv_key = None
 
 class c_FixedPointNumber(Structure):
     _fields_ = [
-        ('encoding', PLN_BYTES),
+        ('encoding', c_byte * PLN_BYTES),
         ('exponent', c_int32),
         ('base', c_int32)
     ]
