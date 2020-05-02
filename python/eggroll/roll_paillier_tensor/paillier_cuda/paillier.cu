@@ -99,7 +99,7 @@ void mul(cgbn_mem_t<_BITS> *a, cgbn_mem_t<_BITS> *b, cgbn_mem_t<_BITS> *res, \
     return;
   
   cgbn_context_t<_TPI> bn_context(cgbn_report_monitor, report, tid);
-  cgbn_env_t<cgbn_context_t<_TPI>, _BITS> bn_env(bn_context.env<cgbn_env_t<cgbn_context_t<_TPI>, _BITS>>());
+  typename cgbn_env_t<cgbn_context_t<_TPI>, _BITS> bn_env(bn_context.env<typename cgbn_env_t<cgbn_context_t<_TPI>, _BITS>>());
   typename cgbn_env_t<cgbn_context_t<_TPI>, _BITS>::cgbn_t oprand1, oprand2, tmp;
   
   cgbn_load(bn_env, oprand1, a + tid);
