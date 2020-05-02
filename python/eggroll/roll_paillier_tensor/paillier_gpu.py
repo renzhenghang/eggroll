@@ -171,6 +171,7 @@ def encrypt(values, obf=True):
     global _cuda_lib
     global _pub_key
     # [print(v.encoding) for v in values]
+    print('cpu encoding', values[0].encoding)
     fpn_list = [
         c_FixedPointNumber(v) for v in values
     ]

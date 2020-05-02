@@ -296,6 +296,7 @@ void encrypt(FixedPointNumber *plain, gpu_cph *r, const uint32_t count, const bo
   cudaMalloc(&raw_cipher_gpu, sizeof(gpu_cph) * count);
   memset(r, 0, sizeof(gpu_cph) * count);
   cudaMemset(raw_plain_gpu, 0, sizeof(gpu_cph) * count);
+  dumpMem(plain[0].encoding, sizeof(plain_t));
   
   for (int i = 0; i < count; i++) {
     cudaMemcpy(raw_plain_gpu + i, &plain[i].encoding, sizeof(plain_t), cudaMemcpyHostToDevice);
