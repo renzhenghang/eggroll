@@ -19,7 +19,7 @@ endif
 
 volta: 
 	nvcc -x cu $(CGBN_INC) $(CGBN_LIB) --shared -arch=sm_70 operator.cpp -o paillier_gpu.so \
-	 --compiler-options '-fPIC' -lgmp && mv paillier_gpu.so ../../../lib
+	 --compiler-options '-fPIC' -lgmp && mv paillier_gpu.so ../../../../lib
 
 clean:
 	rm -f ../../../../lib/paillier_gpu.so
