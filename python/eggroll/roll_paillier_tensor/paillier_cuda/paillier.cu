@@ -126,9 +126,9 @@ __device__  __forceinline__ void l_func(env_cph_t &bn_env, env_cph_t::cgbn_t &ou
   
   if(cgbn_compare(bn_env, cipher_t, xsquare_t) >= 0) {
     cgbn_rem(bn_env, cipher_lt, cipher_t, xsquare_t);
-    mont_modular_power(bn_env,tmp,cipher_lt,tmp2,xsquare_t);
+    mont_modular_power<CPH_BITS, PAILLIER_TPI>(bn_env, tmp, cipher_lt, tmp2, xsquare_t);
   } else {
-    mont_modular_power(bn_env, tmp, cipher_t, tmp2, xsquare_t);
+    mont_modular_power<CPH_BITS, PAILLIER_TPI>(bn_env, tmp, cipher_t, tmp2, xsquare_t);
   }
  
   cgbn_sub_ui32(bn_env, tmp, tmp, 1);
