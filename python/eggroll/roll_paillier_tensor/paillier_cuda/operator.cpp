@@ -161,7 +161,7 @@ void pen_increase_exponent_to(PaillierEncryptedNumber *a, const uint32_t exponen
   gpu_cph *cof;
   gpu_cph *cipher_gpu;
   gpu_cph *cipher_res;
-  cudaMallocAndSet((void **)&cof, sizeof(plain_t) * count);
+  cudaMallocAndSet((void **)&cof, sizeof(gpu_cph) * count);
   cudaMallocAndSet((void **)&cipher_gpu, sizeof(gpu_cph) * count);
   cudaMallocAndSet((void **)&cipher_res, sizeof(gpu_cph) * count);
   uint32_t base = a[0].base;
@@ -468,7 +468,7 @@ void matmul(PaillierEncryptedNumber *cipher_a, FixedPointNumber *plain_b, Pailli
 //   fpn_increase_exponent_to(plain_b, max_exponent, Q * R);
 
   cudaMallocAndSet((void **)&cipher_gpu, sizeof(gpu_cph) * P * Q);
-  cudaMallocAndSet((void **)&plain_gpu, sizeof(plain_t) * Q * R);
+  cudaMallocAndSet((void **)&plain_gpu, sizeof(gpu_cph) * Q * R);
   cudaMallocAndSet((void **)&cipher_res, sizeof(gpu_cph) * P * R);
 
   extractPen(cipher_gpu, cipher_a, P * Q, HostToDevice);
@@ -517,7 +517,7 @@ void batch_matmul(PaillierEncryptedNumber *a, FixedPointNumber *b, PaillierEncry
 
   cudaMallocAndSet((void **)&cipher_a, sizeof(gpu_cph) * count_a);
   cudaMallocAndSet((void **)&cipher_res, sizeof(gpu_cph) * count_res);
-  cudaMallocAndSet((void **)&plain_b, sizeof(plain_t) * count_b);
+  cudaMallocAndSet((void **)&plain_b, sizeof(gpu_cph) * count_b);
   
   for (int i = 0; i < count_a; i++)
     max_exponent = max_exponent < a[i].exponent ? a[i].exponent : max_exponent;

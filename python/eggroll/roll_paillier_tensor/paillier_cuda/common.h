@@ -29,7 +29,7 @@ typedef cgbn_mem_t<CPH_BITS> gpu_cph;
   #endif
 #endif
 struct FixedPointNumber {
-  plain_t encoding;
+  char encoding[PLAIN_BITS/8];
   int32_t exponent;
   int32_t base;
 };
