@@ -373,7 +373,7 @@ void decrypt(PaillierEncryptedNumber *cipher, gpu_cph *r, const uint32_t count) 
   cudaMallocAndSet((void **)&res_gpu, sizeof(gpu_cph) * count);
 
   for (int i = 0; i < count; i++)
-    cudaMemcpy(raw_cipher_gpu + i, cipher[i].cipher, sizeof(gpu_cph), cudaMemcpyHostToDevice);
+    cudaMemcpy(raw_cipher_gpu + i, cipher[i].cipher, sizeof(plain_t), cudaMemcpyHostToDevice);
   
   call_raw_decrypt(raw_cipher_gpu, count, res_gpu);
   cudaMemcpy(r, res_gpu, sizeof(gpu_cph) * count, cudaMemcpyDeviceToHost);
