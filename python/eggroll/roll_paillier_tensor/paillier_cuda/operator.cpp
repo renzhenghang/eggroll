@@ -84,9 +84,26 @@ void call_raw_decrypt(gpu_cph *cipher_gpu, const uint32_t count, gpu_cph *res) {
   int IPB = TPB/PAILLIER_TPI;
   int block_size = (count + IPB - 1) / IPB;
   int thread_size = TPB;
+  gpu_cph *mp;
+  gpu_cph *mp_cpu = (gpu_cph *) malloc(sizeof(gpu_cph * count));
+  gpu_cph *mq;
+  gpu_cph *mq_cpu = (gpu_cph *) malloc(sizeof(gpu_cph * count));
+  cudaMallocAndSet((void **)&mp, sizeof(gpu_cph) * count);
+  cudaMallocAndSet((void **)&mq, sizeof(gpu_cph) * count);
 
   raw_decrypt<<<block_size, thread_size>>>(gpu_priv_key, gpu_pub_key, err_report, res, \
-  cipher_gpu, count);
+  cipher_gpu, count, mp, mq);
+
+  cudaMemcpy(mp_cpu, mp, sizeof(gpu_cph) * count, cudaMemcpyDeviceToHost);
+  cudaMemcpy(mq_cpu, mq, sizeof(gpu_cph) * count, cudaMemcpyDeviceToHost);
+  printf("mp\n");
+  dumpMem(mp, sizeof(gpu_cph));
+  printf("mq\n");
+  dumpMem(mq, sizeof(gpu_cph));
+  cudaFree(mp);
+  cudaFree(mq);
+  free(mp_cpu);
+  free(mq_cpu);
 }
 
 
@@ -373,7 +390,7 @@ void decrypt(PaillierEncryptedNumber *cipher, gpu_cph *r, const uint32_t count) 
   cudaMallocAndSet((void **)&res_gpu, sizeof(gpu_cph) * count);
 
   for (int i = 0; i < count; i++)
-    cudaMemcpy(raw_cipher_gpu + i, cipher[i].cipher, sizeof(plain_t), cudaMemcpyHostToDevice);
+    cudaMemcpy(raw_cipher_gpu + i, cipher[i].cipher, sizeof(gpu_cph), cudaMemcpyHostToDevice);
   
   call_raw_decrypt(raw_cipher_gpu, count, res_gpu);
   cudaMemcpy(r, res_gpu, sizeof(gpu_cph) * count, cudaMemcpyDeviceToHost);
