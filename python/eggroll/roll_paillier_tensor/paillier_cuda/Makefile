@@ -22,4 +22,4 @@ volta:
 	 --compiler-options '-fPIC' -lgmp && mv paillier_gpu.so ../../../lib
 
 clean:
-	rm -f ../../../lib/paillier_gpu.so
+	rm -f ../../../../lib/paillier_gpu.so
