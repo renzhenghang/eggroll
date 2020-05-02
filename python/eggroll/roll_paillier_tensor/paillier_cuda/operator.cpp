@@ -292,8 +292,8 @@ void encrypt(FixedPointNumber *plain, gpu_cph *r, const uint32_t count, const bo
   gpu_cph *raw_plain_gpu;
   gpu_cph *raw_cipher_gpu;
   unsigned int *obfs = NULL;
-  cudaMallocAndSet(&raw_plain_gpu, sizeof(gpu_cph) * count);
-  cudaMallocAndSet(&raw_cipher_gpu, sizeof(gpu_cph) * count);
+  cudaMallocAndSet((void **)&raw_plain_gpu, sizeof(gpu_cph) * count);
+  cudaMallocAndSet((void **)&raw_cipher_gpu, sizeof(gpu_cph) * count);
   memset(r, 0, sizeof(gpu_cph) * count);
   cudaMemset(raw_plain_gpu, 0, sizeof(gpu_cph) * count);
   dumpMem(plain[0].encoding, sizeof(plain_t));
@@ -369,8 +369,8 @@ void decrypt(PaillierEncryptedNumber *cipher, gpu_cph *r, const uint32_t count) 
   //   3. copy back to cpu
   gpu_cph *raw_cipher_gpu;
   gpu_cph *res_gpu;
-  cudaMallocAndSet(&raw_cipher_gpu, sizeof(gpu_cph) * count);
-  cudaMallocAndSet(&res_gpu, sizeof(gpu_cph) * count);
+  cudaMallocAndSet((void **)&raw_cipher_gpu, sizeof(gpu_cph) * count);
+  cudaMallocAndSet((void **)&res_gpu, sizeof(gpu_cph) * count);
 
   for (int i = 0; i < count; i++)
     cudaMemcpy(raw_cipher_gpu + i, cipher[i].cipher, sizeof(gpu_cph), cudaMemcpyHostToDevice);
