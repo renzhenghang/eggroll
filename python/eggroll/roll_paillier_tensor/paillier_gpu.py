@@ -9,7 +9,9 @@ from federatedml.secureprotol.fate_paillier import PaillierEncryptedNumber
 from federatedml.secureprotol.fixedpoint import FixedPointNumber
 
 CPH_BITS = 2048
+PLN_BITS = 1024
 CPH_BYTES = CPH_BITS // 8
+PLN_BYTES = PLN_BITS // 8
 _BASE = 16
 _key_init = False
 _pub_key = None
@@ -17,12 +19,15 @@ _priv_key = None
 
 class c_FixedPointNumber(Structure):
     _fields_ = [
-        ('encoding', c_uint64),
+        ('encoding', PLN_BYTES),
         ('exponent', c_int32),
         ('base', c_int32)
     ]
     def __init__(self, fpn):
-        super(c_FixedPointNumber, self).__init__(encoding=fpn.encoding, exponent=fpn.exponent, base=fpn.BASE)
+        c_pln = (c_byte * PLN_BYTES).from_buffer(
+            create_string_buffer(fpn.encoding.to_bytes(PLN_BYTES, 'little'))
+        )
+        super(c_FixedPointNumber, self).__init__(encoding=c_pln, exponent=fpn.exponent, base=fpn.BASE)
 
 class c_PaillierEncryptedNumber(Structure):
     _fields_ = [
