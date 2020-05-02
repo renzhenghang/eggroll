@@ -161,8 +161,8 @@ class PaillierPrivateKey(object):
         # print('mp - mq')
         # print(hex(mp - mq))
         x = (mq + (u * self.q)) % self.public_key.n
-        print('u')
-        print(hex(u))
+        print('u before mod p')
+        print(hex((mp - mq) * self.q_inverse))
         return x
 
     def raw_decrypt(self, ciphertext):
