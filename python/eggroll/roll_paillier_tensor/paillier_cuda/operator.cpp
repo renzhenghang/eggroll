@@ -97,9 +97,9 @@ void call_raw_decrypt(gpu_cph *cipher_gpu, const uint32_t count, gpu_cph *res) {
   cudaMemcpy(mp_cpu, mp, sizeof(gpu_cph) * count, cudaMemcpyDeviceToHost);
   cudaMemcpy(mq_cpu, mq, sizeof(gpu_cph) * count, cudaMemcpyDeviceToHost);
   printf("mp\n");
-  dumpMem((char *)mp, sizeof(gpu_cph));
+  dumpMem((char *)mp_cpu, sizeof(gpu_cph));
   printf("mq\n");
-  dumpMem((char *)mq, sizeof(gpu_cph));
+  dumpMem((char *)mq_cpu, sizeof(gpu_cph));
   cudaFree(mp);
   cudaFree(mq);
   free(mp_cpu);
