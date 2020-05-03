@@ -59,6 +59,7 @@ public:
   cgbn_mem_t<CPH_BITS> q_inverse;
   cgbn_mem_t<CPH_BITS> hp;
   cgbn_mem_t<CPH_BITS> hq;
+  cgbn_mem_t<CPH_BITS> delta;
 };
 
 struct PaillierEncryptedNumber {

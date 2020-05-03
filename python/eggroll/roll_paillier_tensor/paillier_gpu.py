@@ -79,8 +79,9 @@ def init_gpu_keys(pub_key, priv_key):
     c_q_inverse = c_char_p(priv_key.q_inverse.to_bytes(CPH_BYTES, 'little'))
     c_hp = c_char_p(priv_key.hp.to_bytes(CPH_BYTES, 'little'))
     c_hq = c_char_p(priv_key.hq.to_bytes(CPH_BYTES, 'little'))
+    c_delta = c_char_p(priv_key.delta.to_bytes(CPH_BYTES, 'little'))
 
-    _cuda_lib.init_priv_key(c_p, c_q, c_psquare, c_qsquare, c_q_inverse, c_hp, c_hq)
+    _cuda_lib.init_priv_key(c_p, c_q, c_psquare, c_qsquare, c_q_inverse, c_hp, c_hq, c_delta)
     _pub_key = pub_key
     _priv_key = priv_key
 

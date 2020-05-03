@@ -361,7 +361,7 @@ __global__ void raw_decrypt(PaillierPrivateKey *gpu_priv_key, PaillierPublicKey 
     return;
   context_t      bn_context(cgbn_report_monitor, report, tid);
   env_cph_t          bn_env(bn_context.env<env_cph_t>());
-  env_cph_t::cgbn_t  mp, mq, tmp, q_inverse, n, p, q, hp, hq, psquare, qsquare, cipher;  
+  env_cph_t::cgbn_t  mp, mq, tmp, q_inverse, n, p, q, hp, hq, psquare, qsquare, cipher, delta;  
   cgbn_load(bn_env, cipher, ciphers + tid);
   cgbn_load(bn_env, q_inverse, &gpu_priv_key[0].q_inverse);
   cgbn_load(bn_env, n, &gpu_pub_key[0].n);
@@ -371,6 +371,7 @@ __global__ void raw_decrypt(PaillierPrivateKey *gpu_priv_key, PaillierPublicKey 
   cgbn_load(bn_env, hq, &gpu_priv_key[0].hq);
   cgbn_load(bn_env, psquare, &gpu_priv_key[0].psquare);
   cgbn_load(bn_env, qsquare, &gpu_priv_key[0].qsquare);
+  cgbn_load(bn_env, delta, &gpu_priv_key[0].delta);
   
   l_func(bn_env, mp, cipher, p, psquare, hp); 
   l_func(bn_env, mq, cipher, q, qsquare, hq); 
@@ -378,6 +379,11 @@ __global__ void raw_decrypt(PaillierPrivateKey *gpu_priv_key, PaillierPublicKey 
   cgbn_sub(bn_env, tmp, mp, mq);
   cgbn_mul(bn_env, tmp, tmp, q_inverse); 
   cgbn_rem(bn_env, tmp, tmp, p);
+  if (cgbn_compare(bn_env, mp, mq) < 0) {
+    // add delta
+    cgbn_add(bn_env, tmp, tmp, delta);
+    cgbn_rem(bn_env, tmp, tmp, p);
+  }
   if (dbg_msg != NULL) cgbn_store(bn_env, dbg_msg + tid, tmp);
   cgbn_mul(bn_env, tmp, tmp, q);
   cgbn_add(bn_env, tmp, mq, tmp);
