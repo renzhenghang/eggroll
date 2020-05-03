@@ -15,7 +15,7 @@ void init_pub_key(void *n, void *g, void *nsquare, void *max_int) {
 }
 
 void init_priv_key(void *p, void *q, void *psquare, void *qsquare, void *q_inverse,
-                   void *hp, void *hq, void *delta) {
+                   void *hp, void *hq, void *p_inverse) {
   cudaMalloc(&gpu_priv_key, sizeof(PaillierPrivateKey));
   cudaMemcpy((void *)&gpu_priv_key->p, p, CPH_BITS/8, cudaMemcpyHostToDevice);
   cudaMemcpy((void *)&gpu_priv_key->q, q, CPH_BITS/8, cudaMemcpyHostToDevice);
@@ -24,7 +24,7 @@ void init_priv_key(void *p, void *q, void *psquare, void *qsquare, void *q_inver
   cudaMemcpy((void *)&gpu_priv_key->q_inverse, q_inverse, CPH_BITS/8, cudaMemcpyHostToDevice);
   cudaMemcpy((void *)&gpu_priv_key->hp, hp, CPH_BITS/8, cudaMemcpyHostToDevice);
   cudaMemcpy((void *)&gpu_priv_key->hq, hq, CPH_BITS/8, cudaMemcpyHostToDevice);
-  cudaMemcpy((void *)&gpu_priv_key->delta, delta, CPH_BITS/8, cudaMemcpyHostToDevice);
+  cudaMemcpy((void *)&gpu_priv_key->p_inverse, p_inverse, CPH_BITS/8, cudaMemcpyHostToDevice);
 }
 
 void init_err_report() {

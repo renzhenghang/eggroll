@@ -127,9 +127,9 @@ class PaillierPrivateKey(object):
         self.psquare = self.p * self.p
         self.qsquare = self.q * self.q
         self.q_inverse = gmpy_math.invert(self.q, self.p)
+        self.p_inverse = gmpy_math.invert(self.p, self.q)
         self.hp = self.h_func(self.p, self.psquare)
         self.hq = self.h_func(self.q, self.qsquare)
-        self.delta = 2 ** (public_key.n.bit_length() * 2) % self.p
 
     def __eq__(self, other):
         return self.p == other.p and self.q == other.q
