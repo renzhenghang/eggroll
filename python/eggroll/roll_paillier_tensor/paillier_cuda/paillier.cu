@@ -348,7 +348,7 @@ gpu_cph *plains_b, gpu_cph *ciphers_res, const uint32_t P, const uint32_t Q, con
 }
 
 __global__ void raw_decrypt(PaillierPrivateKey *gpu_priv_key, PaillierPublicKey *gpu_pub_key,
-	   	cgbn_error_report_t *report, gpu_cph *plains, gpu_cph *ciphers, int count, gpu_cph *dbg_msg) {
+	   	cgbn_error_report_t *report, gpu_cph *plains, gpu_cph *ciphers, int count) {
 /*************************************************************************************
 * decryption
 * in:
@@ -380,7 +380,6 @@ __global__ void raw_decrypt(PaillierPrivateKey *gpu_priv_key, PaillierPublicKey 
     cgbn_sub(bn_env, tmp, mp, mq);
     cgbn_mul(bn_env, tmp, tmp, q_inverse); 
     cgbn_rem(bn_env, tmp, tmp, p);
-    if (dbg_msg != NULL) cgbn_store(bn_env, dbg_msg + tid, tmp);
     cgbn_mul(bn_env, tmp, tmp, q);
     cgbn_add(bn_env, tmp, mq, tmp);
     cgbn_rem(bn_env, tmp, tmp, n);
@@ -388,7 +387,6 @@ __global__ void raw_decrypt(PaillierPrivateKey *gpu_priv_key, PaillierPublicKey 
     cgbn_sub(bn_env, tmp, mq, mp);
     cgbn_mul(bn_env, tmp, tmp, p_inverse); 
     cgbn_rem(bn_env, tmp, tmp, q);
-    if (dbg_msg != NULL) cgbn_store(bn_env, dbg_msg + tid, tmp);
     cgbn_mul(bn_env, tmp, tmp, p);
     cgbn_add(bn_env, tmp, mp, tmp);
     cgbn_rem(bn_env, tmp, tmp, n);
