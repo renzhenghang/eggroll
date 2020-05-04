@@ -85,16 +85,9 @@ void call_raw_decrypt(gpu_cph *cipher_gpu, const uint32_t count, gpu_cph *res) {
   int IPB = TPB/PAILLIER_TPI;
   int block_size = (count + IPB - 1) / IPB;
   int thread_size = TPB;
-  gpu_cph *dbg_cpu = (gpu_cph *) malloc(sizeof(gpu_cph) * count);
 
   raw_decrypt<<<block_size, thread_size>>>(gpu_priv_key, gpu_pub_key, err_report, res, \
   cipher_gpu, count);
-
-  cudaMemcpy(dbg_cpu, dbg_gpu, sizeof(gpu_cph) * count, cudaMemcpyDeviceToHost);
-  printf("msg\n");
-  dumpMem((char *)dbg_cpu, sizeof(gpu_cph));
-  cudaFree(dbg_gpu);
-  free(dbg_cpu);
 }
 
 
