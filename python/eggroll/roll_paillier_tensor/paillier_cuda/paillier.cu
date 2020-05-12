@@ -324,10 +324,6 @@ gpu_cph *plains_b, gpu_cph *ciphers_res, const uint32_t P, const uint32_t Q, con
   int row = blockIdx.y * blockDim.z + threadIdx.z;
 
   int tid = (row * R) + col;
-  if (threadIdx.x == 0) {
-    printf("row: %d, col: %d\nblockIdx: (%d, %d, %d)\nthreadIdx: (%d, %d, %d)\n", row, col,\
-     blockIdx.x, blockIdx.y, blockIdx.z, threadIdx.x, threadIdx.y, threadIdx.z);
-  }
 
   if (row >= P || col >= R)
    return;

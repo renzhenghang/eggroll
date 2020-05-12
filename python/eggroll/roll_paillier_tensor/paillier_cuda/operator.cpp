@@ -157,8 +157,6 @@ void cipher_align(PaillierEncryptedNumber *a, PaillierEncryptedNumber *b, const 
 
 void pen_increase_exponent_to(PaillierEncryptedNumber *a, const uint32_t exponent, \
    const uint32_t count) {
-  printf("enter pen\n");
-  printf("count: %d\n", count);
   gpu_cph *cof;
   gpu_cph *cipher_gpu;
   gpu_cph *cipher_res;
@@ -301,8 +299,7 @@ void encrypt(FixedPointNumber *plain, gpu_cph *r, const uint32_t count, const bo
   cudaMallocAndSet((void **)&raw_cipher_gpu, sizeof(gpu_cph) * count);
   memset(r, 0, sizeof(gpu_cph) * count);
   cudaMemset(raw_plain_gpu, 0, sizeof(gpu_cph) * count);
-  dumpMem(plain[0].encoding, sizeof(plain_t));
-  
+
   for (int i = 0; i < count; i++) {
     cudaMemcpy(raw_plain_gpu + i, &plain[i].encoding, sizeof(plain_t), cudaMemcpyHostToDevice);
   }
@@ -430,7 +427,6 @@ void sum(PaillierEncryptedNumber *cipher, PaillierEncryptedNumber *res, const ui
     dst_buf = ciphers_buf[dst_index % 2];
     src_buf = ciphers_buf[(dst_index % 2 + 1) % 2];
     // if ()
-    printf("check %d\n", i);
     call_raw_add(src_buf, src_buf + i, dst_buf, i);
     if (i % 2 == 1 && i != 1) {
       i += 1;
