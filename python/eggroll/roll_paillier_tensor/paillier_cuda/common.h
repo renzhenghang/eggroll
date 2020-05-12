@@ -9,6 +9,7 @@
 #define PAILLIER_TPI 32
 #define CPH_BITS 2048 // cipher bits
 #define MAX_RAND_SEED 4294967295U
+#define PLAIN_TPI 16
 #define WINDOW_BITS 5
 // helpful typedefs for the kernel
 typedef cgbn_context_t<PAILLIER_TPI>    context_t;

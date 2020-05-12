@@ -92,7 +92,7 @@ void mont_modular_power(cgbn_env_t<cgbn_context_t<_TPI>, _BITS> &bn_env,   \
 
 template<uint32_t _BITS, uint32_t _TPI>
 __global__ __noinline__ 
-void mul(cgbn_mem_t<_BITS> *a, cgbn_mem_t<_BITS> *b, cgbn_mem_t<_BITS> *res, \
+void mul(cgbn_mem_t<_BITS> *a, cgbn_mem_t<_BITS> *b, cgbn_mem_t<_BITS> *mod, cgbn_mem_t<_BITS> *res, \
     cgbn_error_report_t *report, const uint32_t count) {
 
   typedef cgbn_context_t<_TPI> mul_context;
@@ -104,10 +104,18 @@ void mul(cgbn_mem_t<_BITS> *a, cgbn_mem_t<_BITS> *b, cgbn_mem_t<_BITS> *res, \
   mul_context bn_context(cgbn_report_monitor, report, tid);
   env_mul_t bn_env(bn_context);
   typename cgbn_env_t<cgbn_context_t<_TPI>, _BITS>::cgbn_t oprand1, oprand2, tmp;
-  
+  typename cgbn_env_t<cgbn_context_t<_TPI>, _BITS>::cgbn_wide_t tmp_wide;
+
   cgbn_load(bn_env, oprand1, a + tid);
   cgbn_load(bn_env, oprand2, b + tid);
-  cgbn_mul(bn_env, tmp, oprand1, oprand2);
+  if (mod != NULL) {
+    typename cgbn_env_t<cgbn_context_t<_TPI>, _BITS>::cgbn_t local_tmp;
+    cgbn_load(bn_env, local_tmp, mod);
+    cgbn_mul_wide(bn_env, tmp_wide, oprand1, oprand2);
+    cgbn_rem_wide(bn_env, tmp, tmp_wide, local_tmp);
+  } else {
+    cgbn_mul(bn_env, tmp, oprand1, oprand2);
+  }
   cgbn_store(bn_env, res + tid, tmp);
   
 }
@@ -312,10 +320,14 @@ __global__ void raw_mul(PaillierPublicKey *gpu_pub_key, cgbn_error_report_t *rep
 __global__ void raw_matmul(PaillierPublicKey *pub_key, cgbn_error_report_t *report, gpu_cph *ciphers_a, \
 gpu_cph *plains_b, gpu_cph *ciphers_res, const uint32_t P, const uint32_t Q, const uint32_t R) {
   // size: P * Q, Q * R
-  int col = blockIdx.x * blockDim.x + threadIdx.y;
-  int row = blockIdx.y * blockDim.y + threadIdx.z;
+  int col = blockIdx.x * blockDim.y + threadIdx.y;
+  int row = blockIdx.y * blockDim.z + threadIdx.z;
 
   int tid = (row * R) + col;
+  if (threadIdx.x == 0) {
+    printf("row: %d, col: %d\nblockIdx: (%d, %d, %d)\nthreadIdx: (%d, %d, %d)\n", row, col,\
+     blockIdx.x, blockIdx.y, blockIdx.z, threadIdx.x, threadIdx.y, threadIdx.z);
+  }
 
   if (row >= P || col >= R)
    return;
@@ -394,6 +406,12 @@ __global__ void raw_decrypt(PaillierPrivateKey *gpu_priv_key, PaillierPublicKey 
   
   cgbn_store(bn_env, plains + tid, tmp);
 }
+
+// __global__ void sum(PaillierPublicKey *pub_key, cgbn_error_report_t *report, \
+//   gpu_cph *r, gpu_cph *elem, int count) {
+//   int tid = (blockIdx.x * blockDim.x + threadIdx.x) / PAILLIER_TPI;
+//   // if 
+// }
 
 void print_buffer_in_hex(char *addr, int count) {
   printf("dumping memory in hex\n");

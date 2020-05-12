@@ -98,7 +98,8 @@ def scalar_mul(x, s, pub):
     y: FixedPointNumber
     """
     x_shape = x.shape
-    x_flatten = np.flatten(x)
+    x_flatten = x.flatten()
+    s = FixedPointNumber.encode(s, n=pub.n, max_int=pub.max_int)
     s_array = np.array([s for _ in range(len(x_flatten))])
     
     res = paillier_gpu.mul_impl(x_flatten, s_array)
@@ -115,8 +116,9 @@ def mul(x, y, pub):
     x_shape = x.shape
     y_shape = y.shape
     if x_shape == y_shape:
-        x_flatten = np.flatten(x)
-        y_flatten = np.flatten(y)
+        x_flatten = x.flatten()
+        y_flatten = y.flatten()
+        y_flatten = np.array([FixedPointNumber.encode(t, pub.n, pub.max_int) for t in y_flatten])
         res = paillier_gpu.mul_impl(x_flatten, y_flatten)
         return np.reshape(res, x_shape)
     else:
@@ -133,6 +135,7 @@ def vdot(x, v, pub):
     # return np.vdot(x, v)
     # y_shape = y.shape
     x_flatten = x.flatten()
+    x_flatten = [FixedPointNumber.encode(s, pub.n, pub.max_int) for s in x_flatten]
     v_flatten = v.flatten()
     mul_res = paillier_gpu.mul_impl(v_flatten, x_flatten)
 
@@ -162,9 +165,10 @@ def matmul(x, y, _pub):
     # for i in range(x.shape[-1]):
     #     for j in range(y.shape[-2]):
     #         res[...,i,j] = vdot(x[...,i], y[...,j], _pub)
-    res = paillier_gpu.matmul_impl(x.flatten(), y.flatten(order='F'), x.shape, y.shape)
+    y_flatten = np.array([FixedPointNumber.encode(v, _pub.n, _pub.max_int) for v in y.flatten(order='F')])
+    res = paillier_gpu.matmul_impl(x.flatten(), y_flatten, x.shape, y.shape)
 
-    return res
+    return np.reshape(res, (x.shape[0], y.shape[1]))
 
 
 def transe(data):
@@ -187,6 +191,8 @@ def decryptdecode(data, pub, priv):
     if isinstance(data, np.ndarray):
         d_flatten = list(data.flatten())
         d_shape = data.shape
+    elif isinstance(data, PaillierEncryptedNumber):
+        return priv.decrypt(data)
     else:
         d_flatten = data
         d_shape = (len(data),)

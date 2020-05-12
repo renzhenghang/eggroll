@@ -16,7 +16,7 @@ TEST_SHAPE = (10, 100, 100)
 
 # random.seed()
 def generate_sample(length=TEST_SIZE, shape=TEST_SHAPE):
-    return np.reshape([random.gauss(0, 10) for _ in range(length)], TEST_SHAPE)
+    return np.reshape([random.gauss(0, 10) for _ in range(length)], shape)
 
 def dump_res(fpn_list):
     print('\nencoding\t\texponent')
@@ -30,10 +30,10 @@ def bench_mark(ins_num):
             res = func(*args, **kwargs)
             end_time = time.time()
             elapsed = end_time - start_time
-            throughput = ins_num/elapsed
+            throughput = round(ins_num/elapsed, 2)
             print('benchmark:', func.__name__)
             print('{0:.2f}s cost, {1:.2f} instance per second'.format(elapsed, throughput))
-            return res
+            return res, throughput
         return wrapper
     return decorator
 
@@ -62,21 +62,45 @@ class TestGpuCode(unittest.TestCase):
 
     def testDecrypt(self):
         fpn_list = generate_sample()
-        pen_list = bench_mark(TEST_SIZE)(GPUEngine.encrypt_and_obfuscate)(fpn_list, self._pub_key)
-        fpn_dec_list = bench_mark(TEST_SIZE)(GPUEngine.decryptdecode)(pen_list, self._pub_key, self._priv_key)
-        cpu_dec_list = bench_mark(TEST_SIZE)(CPUEngine.decryptdecode)(pen_list, self._pub_key, self._priv_key)
-        print(fpn_list[0])
-        print(fpn_dec_list[0])
-        print(cpu_dec_list[0])
+        pen_list, _ = bench_mark(TEST_SIZE)(GPUEngine.encrypt_and_obfuscate)(fpn_list, self._pub_key)
+        fpn_dec_list, gpu_throughput = bench_mark(TEST_SIZE)(GPUEngine.decryptdecode)(pen_list, self._pub_key, self._priv_key)
+        cpu_dec_list, cpu_throughput = bench_mark(TEST_SIZE)(CPUEngine.decryptdecode)(pen_list, self._pub_key, self._priv_key)
+        print('accelerate: {}'.format(round(gpu_throughput/cpu_throughput, 2)))
 
     def testScalaMul(self):
-        pass
+        s = random.gauss(0, 10)
+        plain = generate_sample()
+        gpu_enc_list = GPUEngine.encrypt_and_obfuscate(plain, self._pub_key, True)
+        std_res = s * plain
+        gpu_smul, gpu_throughput = bench_mark(TEST_SIZE)(GPUEngine.scalar_mul)(gpu_enc_list, s, self._pub_key)
+        gpu_dec = GPUEngine.decryptdecode(gpu_smul, self._pub_key, self._priv_key)
+        print(std_res[0])
+        print('=====')
+        print(gpu_dec[0])
+
 
     def testVdot(self):
-        pass
+        sample1 = generate_sample()
+        sample2 = generate_sample()
+        gpu_enc_sample1 = GPUEngine.encrypt_and_obfuscate(sample1, self._pub_key, True)
+        gpu_mul_res, throughput = bench_mark(TEST_SIZE)(GPUEngine.vdot)(sample2, gpu_enc_sample1, self._pub_key)
+        gpu_dec_res = GPUEngine.decryptdecode(gpu_mul_res, self._pub_key, self._priv_key)
+        std_res = np.vdot(sample1, sample2)
+        print(std_res)
+        print('=====')
+        print(gpu_dec_res)
 
     def testMul(self):
-        pass
+        s = generate_sample()
+        plain = generate_sample()
+        gpu_enc_list = GPUEngine.encrypt_and_obfuscate(plain, self._pub_key, True)
+        std_res = s * plain
+        gpu_smul, gpu_throughput = bench_mark(TEST_SIZE)(GPUEngine.mul)(gpu_enc_list, s, self._pub_key)
+        gpu_dec = GPUEngine.decryptdecode(gpu_smul, self._pub_key, self._priv_key)
+        print(std_res[0])
+        print('=====')
+        print(gpu_dec[0])
+
 
     def testAdd(self):
         fpn_list1 = generate_sample()
@@ -89,88 +113,48 @@ class TestGpuCode(unittest.TestCase):
 
         decry_list = decrypt(add_res)
         std_dec_res = decrypt(std_add_res)
-        # print('before add')
-        # print('a_encoding\t\ta_exponent\t\tb_encoding\t\tb_exponent')
-        # [print(hex(fpn_list1[i].encoding), hex(fpn_list1[i].exponent),\
-        #      hex(fpn_list2[i].encoding), hex(fpn_list2[i].exponent), sep='\t\t') for i in range(10)]
-        # print('after add')
-        # print('res_encoding\t\tres_exponent')
-        # [print(hex(decry_list[i].encoding), hex(decry_list[i].exponent), sep='\t\t') for i in range(10)]
-        # print('std res')
-        # print('res_encoding\t\tres_exponent')
-        # [print(hex(std_dec_res[i].encoding), hex(std_dec_res[i].exponent), sep='\t\t') for i in range(10)]
-
-        # dec_1 = decrypt(pen_list1)
-        # dec_2 = decrypt(pen_list2)
-
-        # print('=============testAdd============')
-        # print('before align')
-        # print('a_encoding\t\ta_exponent\t\tb_encoding\t\tb_exponent')
-        # [print(hex(fpn_list1[i].encoding), hex(fpn_list1[i].exponent),\
-        #      hex(fpn_list2[i].encoding), hex(fpn_list2[i].exponent), sep='\t\t') for i in range(10)]
-        # print('after align')
-        # print('a_encoding\t\ta_exponent\t\tb_encoding\t\tb_exponent')
-        # [print(hex(dec_1[i].encoding), hex(dec_1[i].exponent),\
-        #      hex(dec_2[i].encoding), hex(dec_2[i].exponent), sep='\t\t') for i in range(10)]
-        # pass
 
     def testMatMul(self):
-        fpn_list1 = generate_fpn(4)
-        decode_list1 = [t.decode() for t in fpn_list1]
-        fpn_list2 = generate_fpn(4)
-        decode_list2 = [t.decode() for t in fpn_list2]
-    
-        fpn_np1 = np.reshape(fpn_list1, (2,2))
-        decode_np1 = np.reshape(decode_list1, (2,2))
-        fpn_np2 = np.reshape(fpn_list2, (2,2))
-        decode_np2 = np.reshape(decode_list2, (2,2))
+        plain_1 = generate_sample(64, (8, 8))#np.array([[-0.45210151, -8.50218413], [-6.27697607, -4.32974792]])
+        plain_2 = generate_sample(64, (8, 8))#np.array([[-8.71179594, -6.17352569], [14.58582564,  6.68687083]])
+        # plain_1 = np.array([
+        #     [  4.50448658,  17.12903836,  22.33682854,   0.24429959,  -5.12314784],
+        #     [  9.66272756,   6.27501679,   3.57851277,   6.37858254,   0.26577805],
+        #     [  2.60227914,  10.24448602,   5.88320728,   4.53571183,   2.14124761],
+        #     [-11.29226341, -13.9175846,    9.19047705, -21.88322718,  15.05309201],
+        #     [  9.681583,     7.37928047, -14.97224968,  23.23707535,  12.59830091]
+        # ])
+        # plain_2 = np.array([
+        #     [  1.24948929,  -9.26879398,   8.70192574,  -9.20243046, -14.1412848 ],
+        #     [  4.64989016, -13.42373887,   7.25417334,  13.47832899,  -9.41023313],
+        #     [ -4.62543966,  -0.31392176,  17.89862106,   0.21662054,  -1.16100151],
+        #     [ -5.2547534,   -6.96247477,   4.0229177,   -8.33523413,   1.72597071],
+        #     [  5.80752999,  -5.42635357,  -8.72068844,  -2.94709472,   6.19900684]
+        # ])
+        pen_np1 = GPUEngine.encrypt_and_obfuscate(plain_1, self._pub_key)
 
-        pen_np1 = GPUEngine.encrypt_and_obfuscate(fpn_np1, self._pub_key)
-
-        res = GPUEngine.matmul(pen_np1, fpn_np2, self._pub_key)
+        res, throughput = bench_mark(400)(GPUEngine.matmul)(pen_np1, plain_2, self._pub_key)
         dec_res = GPUEngine.decryptdecode(res, self._pub_key, self._priv_key)
-
-        print("fpn_list1")
-        dump_res(fpn_list2)
-        dump_res(fpn_list1)
-        print("np1", decode_np1)
-        print("np2", decode_np2)
-        print("dec res", dec_res)
-        print(decode_np1.dot(decode_np2))
-
-        # pen_np2 = CPUEngine.encrypt_and_obfuscate(decode_np1, self._pub_key)
-
-        # print(pen_np1)
-        # print(pen_np1.shape)
-        # for i in range(2):
-            # for j in range(2):
-                # print(pen_np1[i][j].ciphertext(False), pen_np1[i][j].exponent)
-                # print(pen_np2[i][j].ciphertext(False), pen_np2[i][j].exponent)
-                # print("")
-
-        # dec_np1 = CPUEngine.decryptdecode(pen_np1, self._pub_key, self._priv_key)
-        # dec_np2 = CPUEngine.decryptdecode(pen_np2, self._pub_key, self._priv_key)
+        std_res = np.matmul(plain_1, plain_2)
+        print(dec_res)
+        print('=====')
+        print(std_res)
+        print('a')
+        print(plain_1)
+        print('b')
+        print(plain_2)
 
     def testSum(self):
-        fpn_list = generate_sample()
+        plain_list = generate_sample()
 
-        fpn_sum = sum(fpn_list)
+        plain_sum = np.sum(plain_list)
+        fpn_list = [FixedPointNumber.encode(v, self._pub_key.n, self._pub_key.max_int) for v in plain_list.flatten()]
 
-        pen_list = encrypt(fpn_list)
-        std_sum = sum(pen_list)
-        # print(len(pen_list))
-        res = sum_impl(pen_list)
-        dec = decrypt([res])
-        std_dec = decrypt([std_sum])
-        dump_res(dec)
-        dump_res(std_dec)
-
-        print(hex(fpn_sum.encoding))
-
-        print(hex(fpn_list[0].encoding), fpn_list[0].exponent)
-        print(hex(fpn_list[1].encoding), fpn_list[1].exponent)
-        print(hex(fpn_list[2].encoding), fpn_list[2].exponent)
-        # pass
+        enc_list = GPUEngine.encrypt_and_obfuscate(plain_list, self._pub_key, True)
+        res, throughput = bench_mark(TEST_SIZE)(sum_impl)(enc_list.flatten())
+        res = self._priv_key.decrypt(res)
+        print(res)
+        print(plain_sum)
     
     def testNegtive(self):
         num = -1.0

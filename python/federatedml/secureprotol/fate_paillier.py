@@ -194,8 +194,8 @@ class PaillierPrivateKey(object):
             raise TypeError("encrypted_number should be an PaillierEncryptedNumber, \
                              not: %s" % type(encrypted_number))
 
-        if self.public_key != encrypted_number.public_key:
-            raise ValueError("encrypted_number was encrypted against a different key!")
+        # if self.public_key != encrypted_number.public_key:
+        #     raise ValueError("encrypted_number was encrypted against a different key!")
 
         encoded = self.raw_decrypt(encrypted_number.ciphertext(be_secure=False))
         encoded = FixedPointNumber(encoded,
